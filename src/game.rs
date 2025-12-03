@@ -17,6 +17,12 @@ struct RocketState {
 }
 
 impl RocketState {
+    fn to_vec(&self) -> Vec<f32> {
+        return vec![self.x, self.y, self.vx, self.vy];
+    }
+}
+
+impl RocketState {
     fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
         Self {
             x: if rand_x {
@@ -31,17 +37,6 @@ impl RocketState {
             },
             vx: xvel,
             vy: yvel,
-        }
-    }
-}
-
-pub fn train() {
-    // let agent: model::Model;
-    // let frozen_agent: model::Model;
-    let mut state = RocketState::new(false, false, 0., 0.);
-    for iter in 0..SESSIONS {
-        if iter == 0 || LOG_INTERVAL % iter == 0 {
-            display_progress(iter);
         }
     }
 }
