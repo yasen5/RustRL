@@ -6,19 +6,23 @@ use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use rand;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::angle::radian;
+use uom::si::angular_acceleration::radian_per_second_squared;
 use uom::si::angular_velocity::radian_per_second;
 use uom::si::f32::*;
 use uom::si::force::newton;
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
 use uom::si::time::second;
+use uom::si::torque::newton_meter;
 use uom::si::velocity::meter_per_second;
+use uom::si::moment_of_inertia::kilogram_square_meter;
+use std::any::type_name_of_val;
 
 const ENV_BOX_WIDTH: u16 = 100;
 const ENV_BOX_HEIGHT: u16 = 100;
 
 // TODO should this contain the engine states?
-struct Rocket {
+pub struct Rocket {
     x: Length,
     y: Length,
     vx: Velocity,
@@ -31,7 +35,6 @@ struct Rocket {
     lander_angle: Angle,
     lander_length: Length,
     engine_strength: Force,
-    moment_of_inertia: MomentOfInertia,
 }
 
 impl Rocket {
@@ -41,7 +44,7 @@ impl Rocket {
 }
 
 impl Rocket {
-    fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
+    pub fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
         let width = Length::new::<meter>((ENV_BOX_WIDTH / 20).to_f32().unwrap());
         let height = Length::new::<meter>((ENV_BOX_HEIGHT / 20).to_f32().unwrap());
         let mass = Mass::new::<kilogram>(50.);
@@ -66,7 +69,6 @@ impl Rocket {
             lander_length: Length::new::<meter>((ENV_BOX_HEIGHT / 40).to_f32().unwrap()),
             engine_strength: Force::new::<newton>(2.),
             mass: mass,
-            moment_of_inertia: mass * (width * width + height * height) / 12.0,
         }
     }
 }
@@ -76,19 +78,42 @@ pub struct Game {
     steps: u16,
 }
 
+impl Game {
+    pub fn new() -> Self {
+        Self {
+            state: Rocket::new(false, false, 0., 0.),
+            steps: 5
+        }
+    }
+}
+
+pub struct StepOutcome {
+    score: u16,
+    finished: bool,
+}
+
 // 0: right engine
 // 1: left engine
 // 2: down engine
 // 3: no engines firing
 impl Game {
-    pub fn step(&mut self, choice: u8) -> bool {
+    pub fn step(&mut self, choice: u8) -> () {
         let DT: Time = Time::new::<second>(0.02);
         let ENGINE_ACCEL = self.state.engine_strength / self.state.mass;
         let GRAVITY: Acceleration = Acceleration::new::<meter_per_second_squared>(9.81);
+        let VERTICAL_MOI: MomentOfInertia = self.state.mass * self.state.width * self.state.width / 12.;
+        let HORIZONTAL_MOI: MomentOfInertia =
+            self.state.mass * self.state.height * self.state.height / 12.;
+        let SIDE_ENGINE_TORQUE: Torque = Torque::new::<newton_meter>(self.state.engine_strength.get::<newton>() * self.state.height.get::<meter>() / 2.);
+        let SIDE_ACCEL: AngularAcceleration = AngularAcceleration::new::<radian_per_second_squared>(
+            SIDE_ENGINE_TORQUE.get::<newton_meter>() / HORIZONTAL_MOI.get::<kilogram_square_meter>(),
+        );
         match choice {
             0 => {
                 self.state.vx -= ENGINE_ACCEL * DT * self.state.tilt.cos();
                 self.state.vy -= ENGINE_ACCEL * DT * self.state.tilt.sin();
+                let piece_of_crap_aka_uom = SIDE_ACCEL * DT;
+                println!("Type of `my_number`: {}", type_name_of_val(&piece_of_crap_aka_uom));
                 Ok(())
             }
             1 => {
@@ -106,5 +131,8 @@ impl Game {
         }
         .unwrap();
         self.state.vy -= GRAVITY * DT;
+        // TODO replace with more complex ground logic
+        let mut score = 0;
+        let mut finished = false;
     }
 }
