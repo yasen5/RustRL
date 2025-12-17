@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 
 use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use rand;
+use std::any::type_name_of_val;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::angle::radian;
 use uom::si::angular_acceleration::radian_per_second_squared;
@@ -12,11 +13,10 @@ use uom::si::f32::*;
 use uom::si::force::newton;
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
+use uom::si::moment_of_inertia::kilogram_square_meter;
 use uom::si::time::second;
 use uom::si::torque::newton_meter;
 use uom::si::velocity::meter_per_second;
-use uom::si::moment_of_inertia::kilogram_square_meter;
-use std::any::type_name_of_val;
 
 const ENV_BOX_WIDTH: u16 = 100;
 const ENV_BOX_HEIGHT: u16 = 100;
@@ -82,7 +82,7 @@ impl Game {
     pub fn new() -> Self {
         Self {
             state: Rocket::new(false, false, 0., 0.),
-            steps: 5
+            steps: 5,
         }
     }
 }
@@ -101,19 +101,17 @@ impl Game {
         let DT: Time = Time::new::<second>(0.02);
         let ENGINE_ACCEL = self.state.engine_strength / self.state.mass;
         let GRAVITY: Acceleration = Acceleration::new::<meter_per_second_squared>(9.81);
-        let VERTICAL_MOI: MomentOfInertia = self.state.mass * self.state.width * self.state.width / 12.;
+        let VERTICAL_MOI: MomentOfInertia =
+            self.state.mass * self.state.width * self.state.width / 12.;
         let HORIZONTAL_MOI: MomentOfInertia =
             self.state.mass * self.state.height * self.state.height / 12.;
-        let SIDE_ENGINE_TORQUE: Torque = Torque::new::<newton_meter>(self.state.engine_strength.get::<newton>() * self.state.height.get::<meter>() / 2.);
-        let SIDE_ACCEL: AngularAcceleration = AngularAcceleration::new::<radian_per_second_squared>(
-            SIDE_ENGINE_TORQUE.get::<newton_meter>() / HORIZONTAL_MOI.get::<kilogram_square_meter>(),
-        );
+        let SIDE_ENGINE_TORQUE: Torque = (self.state.engine_strength * self.state.height / 2.0).into();
+        let SIDE_ACCEL: AngularAcceleration = (SIDE_ENGINE_TORQUE / HORIZONTAL_MOI).into();
         match choice {
             0 => {
                 self.state.vx -= ENGINE_ACCEL * DT * self.state.tilt.cos();
                 self.state.vy -= ENGINE_ACCEL * DT * self.state.tilt.sin();
-                let piece_of_crap_aka_uom = SIDE_ACCEL * DT;
-                println!("Type of `my_number`: {}", type_name_of_val(&piece_of_crap_aka_uom));
+                self.state.angular_velocity -= AngularVelocity::from(SIDE_ACCEL * DT);
                 Ok(())
             }
             1 => {
