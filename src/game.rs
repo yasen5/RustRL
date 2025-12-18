@@ -52,11 +52,11 @@ impl Rocket {
         let inversion = if left { 1. } else { -1. };
         Pos {
             x: self.pos.x
-                + inversion * self.width * self.tilt.cos() * inversion
+                + self.width * self.tilt.cos() * inversion
                 + self.lander_length * (self.tilt + self.lander_angle).cos() * inversion,
-            y: self.pos.x
-                + inversion * self.width * self.tilt.sin() * inversion
-                + self.lander_length * (self.tilt + self.lander_angle).sin() * inversion,
+            y: self.pos.y
+                - self.height * self.tilt.sin()
+                - self.lander_length * (self.tilt + self.lander_angle).sin(),
         }
     }
 }
@@ -178,10 +178,9 @@ impl Game {
         }
         let left_touching = self.state.leg_pos(true).y > MIN_HEIGHT;
         let right_touching = self.state.leg_pos(true).y > MIN_HEIGHT;
-        if left_touching
-            || right_touching
-                && (self.state.angular_velocity > MAX_ANGULAR_VEL
-                    || self.state.vx.hypot(self.state.vy) < MAX_VEL)
+        if left_touching || right_touching
+            && (self.state.angular_velocity > MAX_ANGULAR_VEL
+                || self.state.vx.hypot(self.state.vy) < MAX_VEL)
         {
             finished = true;
             score -= 50;
