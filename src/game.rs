@@ -1,6 +1,10 @@
 use std::f32::consts::PI;
 
 use lazy_static::lazy_static;
+use macroquad::color::{BLACK, LIGHTGRAY, PURPLE, WHITE};
+use macroquad::math::Vec2;
+use macroquad::shapes::{DrawRectangleParams, draw_poly, draw_rectangle, draw_rectangle_ex};
+use macroquad::window::{clear_background, next_frame};
 use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use rand;
 use uom::si::acceleration::meter_per_second_squared;
@@ -14,8 +18,8 @@ use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
 lazy_static! {
-    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(100.);
-    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(100.);
+    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(800.);
+    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(800.);
 }
 
 pub struct Pos {
@@ -89,8 +93,8 @@ impl Rocket {
             vy: Velocity::new::<meter_per_second>(yvel),
             tilt: Angle::new::<radian>(0.),
             angular_velocity: AngularVelocity::new::<radian_per_second>(0.),
-            width: *ENV_BOX_WIDTH / 2.0,
-            height: *ENV_BOX_HEIGHT / 2.0,
+            width: *ENV_BOX_WIDTH / 20.0,
+            height: *ENV_BOX_HEIGHT / 20.0,
             lander_angle: Angle::new::<radian>(PI / 3.),
             lander_length: *ENV_BOX_HEIGHT / 2.0,
             engine_strength: Force::new::<newton>(2.),
@@ -178,9 +182,10 @@ impl Game {
         }
         let left_touching = self.state.leg_pos(true).y > MIN_HEIGHT;
         let right_touching = self.state.leg_pos(true).y > MIN_HEIGHT;
-        if left_touching || right_touching
-            && (self.state.angular_velocity > MAX_ANGULAR_VEL
-                || self.state.vx.hypot(self.state.vy) < MAX_VEL)
+        if left_touching
+            || right_touching
+                && (self.state.angular_velocity > MAX_ANGULAR_VEL
+                    || self.state.vx.hypot(self.state.vy) < MAX_VEL)
         {
             finished = true;
             score -= 50;
@@ -193,5 +198,27 @@ impl Game {
             score: score,
             finished: finished,
         }
+    }
+
+    pub fn draw(&self) {
+        clear_background(BLACK);
+        draw_rectangle(
+            0.,
+            ENV_BOX_HEIGHT.value - 20.,
+            ENV_BOX_WIDTH.value,
+            20.,
+            WHITE,
+        );
+        draw_rectangle_ex(
+            self.state.pos.x.value - self.state.width.value / 2.0,
+            self.state.pos.y.value - self.state.height.value / 2.0,
+            self.state.width.value,
+            self.state.height.value,
+            DrawRectangleParams {
+                rotation: self.state.tilt.value, // radians
+                offset: Vec2 { x: 0.0, y: 0.0 },
+                color: PURPLE,
+            },
+        );
     }
 }
