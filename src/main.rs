@@ -16,16 +16,16 @@ async fn actual_main() {
     loop {
         let mut choice: u8 = 3;
         if is_key_down(KeyCode::A) {
-            choice = 0;
+            choice = 1;
         }
         else if is_key_down(KeyCode::D) {
-            choice = 1;
+            choice = 0;
         }
         else if is_key_down(KeyCode::W) {
             choice = 2;
         }
         newGame.step(choice);
-        newGame.draw();
+        newGame.draw(choice);
         next_frame().await;
     }
 }

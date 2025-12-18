@@ -97,7 +97,7 @@ impl Rocket {
             height: *ENV_BOX_HEIGHT / 20.0,
             lander_angle: Angle::new::<radian>(PI / 3.),
             lander_length: *ENV_BOX_HEIGHT / 2.0,
-            engine_strength: Force::new::<newton>(2.),
+            engine_strength: Force::new::<newton>(10.),
             mass: mass,
         }
     }
@@ -134,7 +134,7 @@ impl Game {
         let MIN_HEIGHT: Length = Length::new::<meter>(20.);
         let MAX_ANGULAR_VEL: AngularVelocity = AngularVelocity::new::<radian_per_second>(PI);
         let MAX_VEL: Velocity = Velocity::new::<meter_per_second>(PI);
-        let DT: Time = Time::new::<second>(0.02);
+        let DT: Time = Time::new::<second>(0.1);
         let ENGINE_ACCEL = self.state.engine_strength / self.state.mass;
         let GRAVITY: Acceleration = Acceleration::new::<meter_per_second_squared>(9.81);
         let VERTICAL_MOI: MomentOfInertia =
@@ -154,7 +154,7 @@ impl Game {
             1 => {
                 self.state.vx += ENGINE_ACCEL * DT * self.state.tilt.cos();
                 self.state.vy += ENGINE_ACCEL * DT * self.state.tilt.sin();
-                self.state.angular_velocity -= AngularVelocity::from(SIDE_ACCEL * DT);
+                self.state.angular_velocity += AngularVelocity::from(SIDE_ACCEL * DT);
                 Ok(())
             }
             2 => {
@@ -172,6 +172,7 @@ impl Game {
         let mut finished = false;
         let x = self.state.pos.x + self.state.vx * DT;
         let y = self.state.pos.x + self.state.vy * DT;
+        self.state.tilt += Angle::from(self.state.angular_velocity * DT);
         if (x - *ENV_BOX_WIDTH / 2.0).value.abs()
             < (self.state.pos.x - *ENV_BOX_WIDTH / 2.0).value.abs()
         {
@@ -200,7 +201,7 @@ impl Game {
         }
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, choice: u8) {
         clear_background(BLACK);
         draw_rectangle(
             0.,
@@ -210,13 +211,13 @@ impl Game {
             WHITE,
         );
         draw_rectangle_ex(
-            self.state.pos.x.value - self.state.width.value / 2.0,
-            self.state.pos.y.value - self.state.height.value / 2.0,
+            self.state.pos.x.value,
+            800. - self.state.pos.y.value,
             self.state.width.value,
             self.state.height.value,
             DrawRectangleParams {
                 rotation: self.state.tilt.value, // radians
-                offset: Vec2 { x: 0.0, y: 0.0 },
+                offset: Vec2 { x: 0.5, y: 0.5 },
                 color: PURPLE,
             },
         );
