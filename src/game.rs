@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use lazy_static::lazy_static;
-use macroquad::color::{BLACK, LIGHTGRAY, PURPLE, WHITE};
+use macroquad::color::{BLACK, GRAY, LIGHTGRAY, PURPLE, WHITE};
 use macroquad::math::Vec2;
 use macroquad::shapes::{DrawRectangleParams, draw_poly, draw_rectangle, draw_rectangle_ex};
 use macroquad::window::{clear_background, next_frame};
@@ -18,8 +18,8 @@ use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
 lazy_static! {
-    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(800.);
-    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(800.);
+    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(50.);
+    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(50.);
 }
 
 pub struct Pos {
@@ -131,7 +131,7 @@ impl Game {
     pub fn step(&mut self, choice: u8) -> StepOutcome {
         // TODO move constants
         let MAX_STEPS = 100;
-        let MIN_HEIGHT: Length = Length::new::<meter>(20.);
+        let MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
         let MAX_ANGULAR_VEL: AngularVelocity = AngularVelocity::new::<radian_per_second>(PI);
         let MAX_VEL: Velocity = Velocity::new::<meter_per_second>(PI);
         let DT: Time = Time::new::<second>(0.1);
@@ -166,7 +166,7 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        self.state.vy -= GRAVITY * DT;
+        // self.state.vy -= GRAVITY * DT;
         // TODO replace with more complex ground logic
         let mut score: i16 = -1;
         let mut finished = false;
@@ -202,24 +202,46 @@ impl Game {
     }
 
     pub fn draw(&self, choice: u8) {
+        let GRAPHICS_SCALAR: f32 = 800. / ENV_BOX_HEIGHT.value;
         clear_background(BLACK);
         draw_rectangle(
             0.,
-            ENV_BOX_HEIGHT.value - 20.,
-            ENV_BOX_WIDTH.value,
-            20.,
+            GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value * 4./5.),
+            GRAPHICS_SCALAR * ENV_BOX_WIDTH.value,
+            GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
             WHITE,
         );
+        // let center = Vec2 {
+        //     x: self.state.pos.x + self.state.width / 2.,
+        //     y: 800. - self.state.pos.y.value
+        // };
+        // let pretransform_engine = Vec2 {
+
+        // }
         draw_rectangle_ex(
-            self.state.pos.x.value,
-            800. - self.state.pos.y.value,
-            self.state.width.value,
-            self.state.height.value,
+            GRAPHICS_SCALAR * (self.state.pos.x - self.state.width/2.).value,
+            GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - (self.state.pos.y + self.state.height/2.)).value,
+            GRAPHICS_SCALAR * self.state.width.value,
+            GRAPHICS_SCALAR * self.state.height.value,
             DrawRectangleParams {
                 rotation: self.state.tilt.value, // radians
                 offset: Vec2 { x: 0.5, y: 0.5 },
                 color: PURPLE,
             },
         );
+        // let ENGINE_WIDTH: Length = Length::new::<meter>(self.state.width.value / 4.);
+        // let ENGINE_HEIGHT: Length = Length::new::<meter>(self.state.height.value / 4.);
+        // draw_rectangle_ex(
+        //     (self.state.pos.x - self.state.width / 2. - ENGINE_WIDTH * self.state.tilt.cos()).value,
+        //     800. - (self.state.pos.y + self.state.height / 2. - ENGINE_WIDTH * self.state.tilt.sin())
+        //         .value,
+        //     ENGINE_WIDTH.value,
+        //     ENGINE_HEIGHT.value,
+        //     DrawRectangleParams {
+        //         offset: Vec2 { x: 0., y: 0. },
+        //         rotation: self.state.tilt.value,
+        //         color: GRAY,
+        //     },
+        // );
     }
 }
