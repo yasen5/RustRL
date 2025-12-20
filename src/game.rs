@@ -18,8 +18,8 @@ use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
 lazy_static! {
-    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(50.);
-    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(50.);
+    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(500.);
+    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(500.);
 }
 
 pub struct Pos {
@@ -69,7 +69,7 @@ impl Rocket {
     pub fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
         let mass = Mass::new::<kilogram>(50.);
         let width = *ENV_BOX_WIDTH / 10.0;
-        let height = *ENV_BOX_HEIGHT / 10.0;
+        let height = *ENV_BOX_HEIGHT / 20.0;
         Self {
             pos: Pos {
                 x: if rand_x {
@@ -99,14 +99,23 @@ impl Rocket {
             height: height,
             lander_angle: Angle::new::<radian>(PI / 3.),
             lander_length: *ENV_BOX_HEIGHT / 2.0,
-            engine_strength: Force::new::<newton>(10.),
+            engine_strength: Force::new::<newton>(1000.),
             mass: mass,
         }
     }
 }
 
+struct JetParticle {
+    x: Length,
+    y: Length,
+    direction: Angle,
+    radius: Length,
+    spawn_time: Time
+}
+
 pub struct Game {
     state: Rocket,
+    jet_particles: Vec<JetParticle>,
     steps: u16,
 }
 
@@ -114,6 +123,7 @@ impl Game {
     pub fn new() -> Self {
         Self {
             state: Rocket::new(false, false, 0., 0.),
+            jet_particles: vec![],
             steps: 0,
         }
     }
@@ -145,7 +155,7 @@ impl Game {
             self.state.mass * self.state.height * self.state.height / 12.;
         let SIDE_ENGINE_TORQUE: Torque =
             (self.state.engine_strength * self.state.height / 2.0).into();
-        let SIDE_ACCEL: AngularAcceleration = (SIDE_ENGINE_TORQUE / HORIZONTAL_MOI).into();
+        let SIDE_ACCEL: AngularAcceleration = (SIDE_ENGINE_TORQUE / HORIZONTAL_MOI / 30.).into();
         match choice {
             0 => {
                 self.state.vx -= ENGINE_ACCEL * DT * self.state.tilt.cos();
@@ -168,8 +178,7 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        // self.state.vy -= GRAVITY * DT;
-        // TODO replace with more complex ground logic
+        self.state.vy -= GRAVITY * DT;
         let mut score: i16 = -1;
         let mut finished = false;
         let x = self.state.pos.x + self.state.vx * DT;
@@ -231,21 +240,22 @@ impl Game {
         let ENGINE_WIDTH: Length = Length::new::<meter>(self.state.width.value / 4.);
         let ENGINE_HEIGHT: Length = Length::new::<meter>(self.state.height.value / 4.);
         let pretransform_engine_center_offset = Vec2 {
-            x: (-self.state.width / 2. - ENGINE_WIDTH / 2.).value,
+            x: (self.state.width / 2. + ENGINE_WIDTH / 2.).value,
             y: (self.state.height / 2.).value,
         };
+        let inverted_tilt: Angle = -self.state.tilt;
         let posttransform_engine_center_offset = Vec2 {
-            x: pretransform_engine_center_offset.x * (-self.state.tilt).cos().value
-                - pretransform_engine_center_offset.y * (-self.state.tilt).sin().value,
-            y: pretransform_engine_center_offset.x * (-self.state.tilt).sin().value
-                + pretransform_engine_center_offset.y * (-self.state.tilt).cos().value,
+            x: pretransform_engine_center_offset.x * inverted_tilt.cos().value
+                - pretransform_engine_center_offset.y * inverted_tilt.sin().value,
+            y: pretransform_engine_center_offset.x * inverted_tilt.sin().value
+                + pretransform_engine_center_offset.y * inverted_tilt.cos().value,
         };
-
         draw_rectangle_ex(
             GRAPHICS_SCALAR * (posttransform_engine_center_offset.x + center.x),
-            GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value - (posttransform_engine_center_offset.y + center.y)),
-            GRAPHICS_SCALAR * (ENGINE_WIDTH.value),
-            GRAPHICS_SCALAR * (ENGINE_HEIGHT.value),
+            GRAPHICS_SCALAR
+                * (ENV_BOX_HEIGHT.value - (posttransform_engine_center_offset.y + center.y)),
+            GRAPHICS_SCALAR * ENGINE_WIDTH.value,
+            GRAPHICS_SCALAR * ENGINE_HEIGHT.value,
             DrawRectangleParams {
                 offset: Vec2 { x: 0.5, y: 0.5 },
                 rotation: self.state.tilt.value,
@@ -254,3 +264,5 @@ impl Game {
         );
     }
 }
+
+
