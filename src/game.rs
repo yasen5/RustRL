@@ -213,13 +213,10 @@ impl Game {
             GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
             WHITE,
         );
-        // let center = Vec2 {
-        //     x: self.state.pos.x + self.state.width / 2.,
-        //     y: 800. - self.state.pos.y.value
-        // };
-        // let pretransform_engine = Vec2 {
-
-        // }
+        let center = Vec2 {
+            x: self.state.pos.x.value,
+            y: self.state.pos.y.value,
+        };
         draw_rectangle_ex(
             GRAPHICS_SCALAR * self.state.pos.x.value,
             GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - self.state.pos.y).value,
@@ -231,19 +228,29 @@ impl Game {
                 color: PURPLE,
             },
         );
-        // let ENGINE_WIDTH: Length = Length::new::<meter>(self.state.width.value / 4.);
-        // let ENGINE_HEIGHT: Length = Length::new::<meter>(self.state.height.value / 4.);
-        // draw_rectangle_ex(
-        //     (self.state.pos.x - self.state.width / 2. - ENGINE_WIDTH * self.state.tilt.cos()).value,
-        //     800. - (self.state.pos.y + self.state.height / 2. - ENGINE_WIDTH * self.state.tilt.sin())
-        //         .value,
-        //     ENGINE_WIDTH.value,
-        //     ENGINE_HEIGHT.value,
-        //     DrawRectangleParams {
-        //         offset: Vec2 { x: 0., y: 0. },
-        //         rotation: self.state.tilt.value,
-        //         color: GRAY,
-        //     },
-        // );
+        let ENGINE_WIDTH: Length = Length::new::<meter>(self.state.width.value / 4.);
+        let ENGINE_HEIGHT: Length = Length::new::<meter>(self.state.height.value / 4.);
+        let pretransform_engine_center_offset = Vec2 {
+            x: (-self.state.width / 2. - ENGINE_WIDTH / 2.).value,
+            y: (self.state.height / 2.).value,
+        };
+        let posttransform_engine_center_offset = Vec2 {
+            x: pretransform_engine_center_offset.x * (-self.state.tilt).cos().value
+                - pretransform_engine_center_offset.y * (-self.state.tilt).sin().value,
+            y: pretransform_engine_center_offset.x * (-self.state.tilt).sin().value
+                + pretransform_engine_center_offset.y * (-self.state.tilt).cos().value,
+        };
+
+        draw_rectangle_ex(
+            GRAPHICS_SCALAR * (posttransform_engine_center_offset.x + center.x),
+            GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value - (posttransform_engine_center_offset.y + center.y)),
+            GRAPHICS_SCALAR * (ENGINE_WIDTH.value),
+            GRAPHICS_SCALAR * (ENGINE_HEIGHT.value),
+            DrawRectangleParams {
+                offset: Vec2 { x: 0.5, y: 0.5 },
+                rotation: self.state.tilt.value,
+                color: GRAY,
+            },
+        );
     }
 }
