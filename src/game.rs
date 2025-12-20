@@ -106,7 +106,7 @@ impl Rocket {
                 }
             }
         }
-        transform(&mut engine_center_offset, -self.tilt);
+        transform(&mut engine_center_offset, self.tilt);
         engine_center_offset
     }
 
@@ -119,7 +119,7 @@ impl Rocket {
             *GRAPHICS_SCALAR * self.engine_dim.value,
             DrawRectangleParams {
                 offset: Vec2 { x: 0.5, y: 0.5 },
-                rotation: self.tilt.value,
+                rotation: -self.tilt.value, // inverted bc of dumb macroquad convention of positive being clockwise
                 color: GRAY,
             },
         );
@@ -234,7 +234,7 @@ impl Game {
             0 => {
                 self.state.vx -= ENGINE_ACCEL * (*DT) * self.state.tilt.cos();
                 self.state.vy -= ENGINE_ACCEL * (*DT) * self.state.tilt.sin();
-                self.state.angular_velocity -= AngularVelocity::from(SIDE_ACCEL * (*DT));
+                self.state.angular_velocity += AngularVelocity::from(SIDE_ACCEL * (*DT));
                 let right_engine_pos = self.state.engine_pos(Engine::RIGHT);
                 self.jet_particles.push(JetParticle::new(
                     self.state.pos.x + Length::new::<meter>(right_engine_pos.x),
@@ -246,7 +246,7 @@ impl Game {
             1 => {
                 self.state.vx += ENGINE_ACCEL * (*DT) * self.state.tilt.cos();
                 self.state.vy += ENGINE_ACCEL * (*DT) * self.state.tilt.sin();
-                self.state.angular_velocity += AngularVelocity::from(SIDE_ACCEL * (*DT));
+                self.state.angular_velocity -= AngularVelocity::from(SIDE_ACCEL * (*DT));
                 let left_engine_pos = self.state.engine_pos(Engine::LEFT);
                 self.jet_particles.push(JetParticle::new(
                     self.state.pos.x + Length::new::<meter>(left_engine_pos.x),
@@ -259,7 +259,6 @@ impl Game {
                 self.state.vx += ENGINE_ACCEL * 2. * (*DT) * self.state.tilt.sin();
                 self.state.vy += ENGINE_ACCEL * 2. * (*DT) * self.state.tilt.cos();
                 let down_engine_pos = self.state.engine_pos(Engine::DOWN);
-                println!("Spawning with dir {} \tDue to tilt {}", (self.state.tilt - Angle::new::<radian>(PI / 2.)).get::<degree>(), self.state.tilt.get::<degree>());
                 self.jet_particles.push(JetParticle::new(
                     self.state.pos.x + Length::new::<meter>(down_engine_pos.x),
                     self.state.pos.y + Length::new::<meter>(down_engine_pos.y),
@@ -324,7 +323,7 @@ impl Game {
             *GRAPHICS_SCALAR * self.state.width.value,
             *GRAPHICS_SCALAR * self.state.height.value,
             DrawRectangleParams {
-                rotation: self.state.tilt.value, // radians
+                rotation: -self.state.tilt.value, // radians, inverted bc of stupid convention difference
                 offset: Vec2 { x: 0.5, y: 0.5 },
                 color: PURPLE,
             },
