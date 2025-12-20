@@ -3,8 +3,8 @@ use std::f32::consts::PI;
 use lazy_static::lazy_static;
 use macroquad::color::{BLACK, GRAY, LIGHTGRAY, PURPLE, WHITE};
 use macroquad::math::Vec2;
-use macroquad::shapes::{DrawRectangleParams, draw_poly, draw_rectangle, draw_rectangle_ex};
-use macroquad::window::{clear_background, next_frame};
+use macroquad::shapes::{DrawRectangleParams, draw_rectangle, draw_rectangle_ex};
+use macroquad::window::clear_background;
 use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use rand;
 use uom::si::acceleration::meter_per_second_squared;
@@ -68,6 +68,8 @@ impl Rocket {
 impl Rocket {
     pub fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
         let mass = Mass::new::<kilogram>(50.);
+        let width = *ENV_BOX_WIDTH / 10.0;
+        let height = *ENV_BOX_HEIGHT / 10.0;
         Self {
             pos: Pos {
                 x: if rand_x {
@@ -77,7 +79,7 @@ impl Rocket {
                             .unwrap(),
                     )
                 } else {
-                    Length::new::<meter>(ENV_BOX_WIDTH.value / 2.)
+                    *ENV_BOX_WIDTH / 2.
                 },
                 y: if rand_y {
                     Length::new::<meter>(
@@ -86,15 +88,15 @@ impl Rocket {
                             .unwrap(),
                     )
                 } else {
-                    Length::new::<meter>(ENV_BOX_HEIGHT.value / 2.)
+                    *ENV_BOX_HEIGHT / 2.
                 },
             },
             vx: Velocity::new::<meter_per_second>(xvel),
             vy: Velocity::new::<meter_per_second>(yvel),
             tilt: Angle::new::<radian>(0.),
             angular_velocity: AngularVelocity::new::<radian_per_second>(0.),
-            width: *ENV_BOX_WIDTH / 20.0,
-            height: *ENV_BOX_HEIGHT / 20.0,
+            width: width,
+            height: height,
             lander_angle: Angle::new::<radian>(PI / 3.),
             lander_length: *ENV_BOX_HEIGHT / 2.0,
             engine_strength: Force::new::<newton>(10.),
@@ -171,7 +173,7 @@ impl Game {
         let mut score: i16 = -1;
         let mut finished = false;
         let x = self.state.pos.x + self.state.vx * DT;
-        let y = self.state.pos.x + self.state.vy * DT;
+        let y = self.state.pos.y + self.state.vy * DT;
         self.state.tilt += Angle::from(self.state.angular_velocity * DT);
         if (x - *ENV_BOX_WIDTH / 2.0).value.abs()
             < (self.state.pos.x - *ENV_BOX_WIDTH / 2.0).value.abs()
@@ -206,7 +208,7 @@ impl Game {
         clear_background(BLACK);
         draw_rectangle(
             0.,
-            GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value * 4./5.),
+            GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value * 4. / 5.),
             GRAPHICS_SCALAR * ENV_BOX_WIDTH.value,
             GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
             WHITE,
@@ -219,8 +221,8 @@ impl Game {
 
         // }
         draw_rectangle_ex(
-            GRAPHICS_SCALAR * (self.state.pos.x - self.state.width/2.).value,
-            GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - (self.state.pos.y + self.state.height/2.)).value,
+            GRAPHICS_SCALAR * self.state.pos.x.value,
+            GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - self.state.pos.y).value,
             GRAPHICS_SCALAR * self.state.width.value,
             GRAPHICS_SCALAR * self.state.height.value,
             DrawRectangleParams {
