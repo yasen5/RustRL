@@ -256,7 +256,7 @@ impl Game {
                 Ok(())
             }
             2 => {
-                self.state.vx += ENGINE_ACCEL * 2. * (*DT) * self.state.tilt.sin();
+                self.state.vx -= ENGINE_ACCEL * 2. * (*DT) * self.state.tilt.sin();
                 self.state.vy += ENGINE_ACCEL * 2. * (*DT) * self.state.tilt.cos();
                 let down_engine_pos = self.state.engine_pos(Engine::DOWN);
                 self.jet_particles.push(JetParticle::new(
@@ -308,7 +308,7 @@ impl Game {
         }
     }
 
-    pub fn draw(&self, choice: u8) {
+    pub fn draw(&self) {
         clear_background(BLACK);
         draw_rectangle(
             0.,

@@ -25,7 +25,7 @@ async fn actual_main() {
             choice = 2;
         }
         newGame.step(choice);
-        newGame.draw(choice);
+        newGame.draw();
         thread::sleep(Duration::from_millis(100));
         next_frame().await;
     }
