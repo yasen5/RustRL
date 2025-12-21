@@ -126,9 +126,7 @@ impl Rocket {
             },
         );
     }
-}
 
-impl Rocket {
     pub fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
         let mass = Mass::new::<kilogram>(50.);
         let width = *ENV_BOX_WIDTH / 10.0;
