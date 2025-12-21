@@ -1,4 +1,4 @@
-use std::{io, thread, time::Duration};
+use std::{thread, time::Duration};
 
 use macroquad::{color::{BLACK, WHITE}, input::{KeyCode, is_key_down, is_key_pressed}, text::draw_text, window::{Conf, clear_background, next_frame}};
 
@@ -14,7 +14,7 @@ async fn main() {
 }
 
 async fn actual_main() {
-    let mut newGame = game::Game::new();
+    let mut new_game = game::Game::new();
     let mut score = 0;
     loop {
         let mut choice: u8 = 3;
@@ -27,12 +27,12 @@ async fn actual_main() {
         else if is_key_down(KeyCode::W) {
             choice = 2;
         }
-        let result: StepOutcome = newGame.step(choice);
+        let result: StepOutcome = new_game.step(choice);
         score += result.score;
         if result.finished {
             break;
         }
-        newGame.draw();
+        new_game.draw();
         thread::sleep(Duration::from_millis(100));
         next_frame().await;
     }

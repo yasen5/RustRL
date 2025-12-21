@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use lazy_static::lazy_static;
-use macroquad::color::{BLACK, BLUE, Color, GRAY, LIGHTGRAY, PURPLE, WHITE};
+use macroquad::color::{BLACK, BLUE, Color, GRAY, PURPLE, WHITE};
 use macroquad::math::Vec2;
 use macroquad::shapes::{
     DrawRectangleParams, draw_circle, draw_line, draw_rectangle, draw_rectangle_ex,
@@ -12,7 +12,7 @@ use rand;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uom::si::acceleration::meter_per_second_squared;
-use uom::si::angle::{degree, radian};
+use uom::si::angle::radian;
 use uom::si::angular_velocity::radian_per_second;
 use uom::si::f32::*;
 use uom::si::force::newton;
@@ -74,11 +74,20 @@ impl Rocket {
         ];
     }
 
-    fn leg_pos(&self, left: bool) -> Pos {
+    fn leg_pos(&self, left: bool, start: bool) -> Pos {
         let inversion = if left { -1. } else { 1. };
         let mut leg_pos = Pos {
-            x: inversion * (self.width / 2. + self.lander_length * self.lander_angle.cos()),
-            y: -(self.height / 2. + self.lander_length * self.lander_angle.cos()),
+            x: inversion
+                * (if start {
+                    self.width / 2.
+                } else {
+                    self.width / 2. + self.lander_length * self.lander_angle.cos()
+                }),
+            y: -(if start {
+                self.height / 2.
+            } else {
+                self.height / 2. + self.lander_length * self.lander_angle.cos()
+            }),
         };
         transform_with_units(&mut leg_pos, self.tilt);
         leg_pos.x += self.pos.x;
@@ -134,20 +143,12 @@ impl Rocket {
         Self {
             pos: Pos {
                 x: if rand_x {
-                    Length::new::<meter>(
-                        rand::random_range(0..ENV_BOX_WIDTH.value.to_u32().unwrap())
-                            .to_f32()
-                            .unwrap(),
-                    )
+                    Length::new::<meter>(rand::random_range(0.0..ENV_BOX_WIDTH.value))
                 } else {
                     *ENV_BOX_WIDTH / 2.
                 },
                 y: if rand_y {
-                    Length::new::<meter>(
-                        rand::random_range(0..ENV_BOX_HEIGHT.value.to_u32().unwrap())
-                            .to_f32()
-                            .unwrap(),
-                    )
+                    Length::new::<meter>(rand::random_range(0.0..ENV_BOX_HEIGHT.value))
                 } else {
                     *ENV_BOX_HEIGHT / 2.
                 },
@@ -181,15 +182,23 @@ impl Rocket {
         for engine_type in Engine::iter() {
             self.draw_engine(engine_type);
         }
-        let lander_angle = self.tilt - self.lander_angle;
-        let left_leg_pos: Pos = self.leg_pos(false);
+        let left_start: Pos = self.leg_pos(true, true);
+        let left_end: Pos = self.leg_pos(true, false);
+        let right_start: Pos = self.leg_pos(false, true);
+        let right_end: Pos = self.leg_pos(false, false);
         draw_line(
-            *GRAPHICS_SCALAR * left_leg_pos.x.value,
-            *GRAPHICS_SCALAR * left_leg_pos.y.value,
-            *GRAPHICS_SCALAR
-                * (left_leg_pos.x + self.lander_length * lander_angle.cos()).value,
-            *GRAPHICS_SCALAR
-                * (*ENV_BOX_HEIGHT - (left_leg_pos.y + self.lander_length * lander_angle.sin())).value,
+            *GRAPHICS_SCALAR * left_start.x.value,
+            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - left_start.y).value,
+            *GRAPHICS_SCALAR * left_end.x.value,
+            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - left_end.y).value,
+            2.,
+            BLUE,
+        );
+        draw_line(
+            *GRAPHICS_SCALAR * right_start.x.value,
+            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - right_start.y).value,
+            *GRAPHICS_SCALAR * right_end.x.value,
+            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - right_end.y).value,
             2.,
             BLUE,
         );
@@ -252,8 +261,6 @@ impl Game {
     pub fn step(&mut self, choice: u8) -> StepOutcome {
         // TODO move constants
         let ENGINE_ACCEL = self.state.engine_strength / self.state.mass;
-        let VERTICAL_MOI: MomentOfInertia =
-            self.state.mass * self.state.width * self.state.width / 12.;
         let HORIZONTAL_MOI: MomentOfInertia =
             self.state.mass * self.state.height * self.state.height / 12.;
         let SIDE_ENGINE_TORQUE: Torque =
@@ -313,8 +320,8 @@ impl Game {
         if self.steps > *MAX_STEPS {
             score -= 5;
         }
-        let left_touching = self.state.leg_pos(false).y < *MIN_HEIGHT;
-        let right_touching = self.state.leg_pos(true).y < *MIN_HEIGHT;
+        let left_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
+        let right_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
         if left_touching
             || right_touching
                 && (self.state.angular_velocity > *MAX_ANGULAR_VEL
