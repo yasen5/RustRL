@@ -7,7 +7,6 @@ use macroquad::shapes::{
     DrawRectangleParams, draw_circle, draw_line, draw_rectangle, draw_rectangle_ex,
 };
 use macroquad::window::clear_background;
-use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use rand;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -48,6 +47,32 @@ pub struct Pos {
     y: Length,
 }
 
+struct JetParticle {
+    x: Length,
+    y: Length,
+    vx: Velocity,
+    vy: Velocity,
+    life: Time,
+}
+
+impl JetParticle {
+    fn new(x: Length, y: Length, direction: Angle) -> Self {
+        Self {
+            x: x,
+            y: y,
+            vx: direction.cos() * (*PARTICLE_SPEED),
+            vy: direction.sin() * (*PARTICLE_SPEED),
+            life: Time::new::<second>(0.),
+        }
+    }
+
+    fn update(&mut self) {
+        self.x += self.vx * (*DT);
+        self.y += self.vy * (*DT);
+        self.life += *DT;
+    }
+}
+
 // TODO should this contain the engine states?
 pub struct Rocket {
     pos: Pos,
@@ -62,9 +87,42 @@ pub struct Rocket {
     lander_length: Length,
     engine_strength: Force,
     engine_dim: Length,
+    jet_particles: Vec<JetParticle>,
 }
 
 impl Rocket {
+    pub fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
+        let mass = Mass::new::<kilogram>(50.);
+        let width = *ENV_BOX_WIDTH / 10.0;
+        let height = *ENV_BOX_HEIGHT / 20.0;
+        Self {
+            pos: Pos {
+                x: if rand_x {
+                    Length::new::<meter>(rand::random_range(0.0..ENV_BOX_WIDTH.value))
+                } else {
+                    *ENV_BOX_WIDTH / 2.
+                },
+                y: if rand_y {
+                    Length::new::<meter>(rand::random_range(0.0..ENV_BOX_HEIGHT.value))
+                } else {
+                    *ENV_BOX_HEIGHT / 2.
+                },
+            },
+            vx: Velocity::new::<meter_per_second>(xvel),
+            vy: Velocity::new::<meter_per_second>(yvel),
+            tilt: Angle::new::<radian>(0.),
+            angular_velocity: AngularVelocity::new::<radian_per_second>(0.),
+            width: width,
+            height: height,
+            lander_angle: Angle::new::<radian>(-PI / 3.),
+            lander_length: height,
+            engine_strength: Force::new::<newton>(1000.),
+            mass: mass,
+            engine_dim: width / 4.,
+            jet_particles: vec![],
+        }
+    }
+
     fn to_vec(&self) -> Vec<f32> {
         return vec![
             self.pos.x.value,
@@ -121,6 +179,58 @@ impl Rocket {
         engine_center_offset
     }
 
+    fn fire_engine(&mut self, engine: Engine) {
+        let ENGINE_ACCEL = self.engine_strength / self.mass;
+        let HORIZONTAL_MOI: MomentOfInertia = self.mass * self.height * self.height / 12.;
+        let SIDE_ENGINE_TORQUE: Torque = (self.engine_strength * self.height / 2.0).into();
+        let SIDE_ACCEL: AngularAcceleration = (SIDE_ENGINE_TORQUE / HORIZONTAL_MOI / 30.).into();
+        match engine {
+            Engine::RIGHT => {
+                self.vx -= ENGINE_ACCEL * (*DT) * self.tilt.cos();
+                self.vy -= ENGINE_ACCEL * (*DT) * self.tilt.sin();
+                self.angular_velocity += AngularVelocity::from(SIDE_ACCEL * (*DT));
+                let right_engine_pos = self.engine_pos(Engine::RIGHT);
+                self.jet_particles.push(JetParticle::new(
+                    self.pos.x + Length::new::<meter>(right_engine_pos.x),
+                    self.pos.y + Length::new::<meter>(right_engine_pos.y),
+                    self.tilt,
+                ));
+            }
+            Engine::LEFT => {
+                self.vx += ENGINE_ACCEL * (*DT) * self.tilt.cos();
+                self.vy += ENGINE_ACCEL * (*DT) * self.tilt.sin();
+                self.angular_velocity -= AngularVelocity::from(SIDE_ACCEL * (*DT));
+                let left_engine_pos = self.engine_pos(Engine::LEFT);
+                self.jet_particles.push(JetParticle::new(
+                    self.pos.x + Length::new::<meter>(left_engine_pos.x),
+                    self.pos.y + Length::new::<meter>(left_engine_pos.y),
+                    self.tilt - Angle::new::<radian>(PI),
+                ));
+            }
+            Engine::DOWN => {
+                self.vx -= ENGINE_ACCEL * 2. * (*DT) * self.tilt.sin();
+                self.vy += ENGINE_ACCEL * 2. * (*DT) * self.tilt.cos();
+                let down_engine_pos = self.engine_pos(Engine::DOWN);
+                self.jet_particles.push(JetParticle::new(
+                    self.pos.x + Length::new::<meter>(down_engine_pos.x),
+                    self.pos.y + Length::new::<meter>(down_engine_pos.y),
+                    self.tilt - Angle::new::<radian>(PI / 2.),
+                ));
+            }
+        }
+    }
+
+    fn update(&mut self) {
+        self.vy -= (*GRAVITY) * (*DT);
+        self.pos.x += self.vx * (*DT);
+        self.pos.y += self.vy * (*DT);
+        self.tilt += Angle::from(self.angular_velocity * (*DT));
+        for particle in &mut self.jet_particles {
+            particle.update();
+        }
+        self.jet_particles.retain(|p| p.life < *PARTICLE_LIFTIME);
+    }
+
     fn draw_engine(&self, engine: Engine) {
         let engine_center_offset = self.engine_pos(engine);
         draw_rectangle_ex(
@@ -134,37 +244,6 @@ impl Rocket {
                 color: GRAY,
             },
         );
-    }
-
-    pub fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
-        let mass = Mass::new::<kilogram>(50.);
-        let width = *ENV_BOX_WIDTH / 10.0;
-        let height = *ENV_BOX_HEIGHT / 20.0;
-        Self {
-            pos: Pos {
-                x: if rand_x {
-                    Length::new::<meter>(rand::random_range(0.0..ENV_BOX_WIDTH.value))
-                } else {
-                    *ENV_BOX_WIDTH / 2.
-                },
-                y: if rand_y {
-                    Length::new::<meter>(rand::random_range(0.0..ENV_BOX_HEIGHT.value))
-                } else {
-                    *ENV_BOX_HEIGHT / 2.
-                },
-            },
-            vx: Velocity::new::<meter_per_second>(xvel),
-            vy: Velocity::new::<meter_per_second>(yvel),
-            tilt: Angle::new::<radian>(0.),
-            angular_velocity: AngularVelocity::new::<radian_per_second>(0.),
-            width: width,
-            height: height,
-            lander_angle: Angle::new::<radian>(-PI / 3.),
-            lander_length: height,
-            engine_strength: Force::new::<newton>(1000.),
-            mass: mass,
-            engine_dim: width / 4.,
-        }
     }
 
     fn draw(&self) -> () {
@@ -205,35 +284,8 @@ impl Rocket {
     }
 }
 
-struct JetParticle {
-    x: Length,
-    y: Length,
-    vx: Velocity,
-    vy: Velocity,
-    life: Time,
-}
-
-impl JetParticle {
-    fn new(x: Length, y: Length, direction: Angle) -> Self {
-        Self {
-            x: x,
-            y: y,
-            vx: direction.cos() * (*PARTICLE_SPEED),
-            vy: direction.sin() * (*PARTICLE_SPEED),
-            life: Time::new::<second>(0.),
-        }
-    }
-
-    fn update(&mut self) {
-        self.x += self.vx * (*DT);
-        self.y += self.vy * (*DT);
-        self.life += *DT;
-    }
-}
-
 pub struct Game {
     state: Rocket,
-    jet_particles: Vec<JetParticle>,
     steps: u16,
 }
 
@@ -241,7 +293,6 @@ impl Game {
     pub fn new() -> Self {
         Self {
             state: Rocket::new(false, false, 0., 0.),
-            jet_particles: vec![],
             steps: 0,
         }
     }
@@ -260,65 +311,26 @@ impl Game {
     #[allow(non_snake_case)]
     pub fn step(&mut self, choice: u8) -> StepOutcome {
         // TODO move constants
-        let ENGINE_ACCEL = self.state.engine_strength / self.state.mass;
-        let HORIZONTAL_MOI: MomentOfInertia =
-            self.state.mass * self.state.height * self.state.height / 12.;
-        let SIDE_ENGINE_TORQUE: Torque =
-            (self.state.engine_strength * self.state.height / 2.0).into();
-        let SIDE_ACCEL: AngularAcceleration = (SIDE_ENGINE_TORQUE / HORIZONTAL_MOI / 30.).into();
         match choice {
-            0 => {
-                self.state.vx -= ENGINE_ACCEL * (*DT) * self.state.tilt.cos();
-                self.state.vy -= ENGINE_ACCEL * (*DT) * self.state.tilt.sin();
-                self.state.angular_velocity += AngularVelocity::from(SIDE_ACCEL * (*DT));
-                let right_engine_pos = self.state.engine_pos(Engine::RIGHT);
-                self.jet_particles.push(JetParticle::new(
-                    self.state.pos.x + Length::new::<meter>(right_engine_pos.x),
-                    self.state.pos.y + Length::new::<meter>(right_engine_pos.y),
-                    self.state.tilt,
-                ));
-                Ok(())
-            }
-            1 => {
-                self.state.vx += ENGINE_ACCEL * (*DT) * self.state.tilt.cos();
-                self.state.vy += ENGINE_ACCEL * (*DT) * self.state.tilt.sin();
-                self.state.angular_velocity -= AngularVelocity::from(SIDE_ACCEL * (*DT));
-                let left_engine_pos = self.state.engine_pos(Engine::LEFT);
-                self.jet_particles.push(JetParticle::new(
-                    self.state.pos.x + Length::new::<meter>(left_engine_pos.x),
-                    self.state.pos.y + Length::new::<meter>(left_engine_pos.y),
-                    self.state.tilt - Angle::new::<radian>(PI),
-                ));
-                Ok(())
-            }
-            2 => {
-                self.state.vx -= ENGINE_ACCEL * 2. * (*DT) * self.state.tilt.sin();
-                self.state.vy += ENGINE_ACCEL * 2. * (*DT) * self.state.tilt.cos();
-                let down_engine_pos = self.state.engine_pos(Engine::DOWN);
-                self.jet_particles.push(JetParticle::new(
-                    self.state.pos.x + Length::new::<meter>(down_engine_pos.x),
-                    self.state.pos.y + Length::new::<meter>(down_engine_pos.y),
-                    self.state.tilt - Angle::new::<radian>(PI / 2.),
-                ));
-                Ok(())
-            }
+            0 => Ok(self.state.fire_engine(Engine::RIGHT)),
+            1 => Ok(self.state.fire_engine(Engine::LEFT)),
+            2 => Ok(self.state.fire_engine(Engine::DOWN)),
             3 => Ok(()),
             _ => Err(()),
         }
         .unwrap();
-        self.state.vy -= (*GRAVITY) * (*DT);
         let mut score: i16 = -1;
         let mut finished = false;
-        let x = self.state.pos.x + self.state.vx * (*DT);
-        let y = self.state.pos.y + self.state.vy * (*DT);
-        self.state.tilt += Angle::from(self.state.angular_velocity * (*DT));
-        if (x - *ENV_BOX_WIDTH / 2.0).value.abs()
-            < (self.state.pos.x - *ENV_BOX_WIDTH / 2.0).value.abs()
+        let prev_x = self.state.pos.x;
+        self.state.update();
+        if (self.state.pos.x - *ENV_BOX_WIDTH / 2.0).value.abs()
+            < (prev_x - *ENV_BOX_WIDTH / 2.0).value.abs()
         {
             score += 1;
         }
         if self.steps > *MAX_STEPS {
             score -= 5;
+            finished = true;
         }
         let left_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
         let right_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
@@ -333,11 +345,6 @@ impl Game {
             finished = true;
             score += 50;
         }
-        self.state.pos = Pos { x: x, y: y };
-        for particle in &mut self.jet_particles {
-            particle.update();
-        }
-        self.jet_particles.retain(|p| p.life < *PARTICLE_LIFTIME);
         StepOutcome {
             score: score,
             finished: finished,
@@ -353,7 +360,7 @@ impl Game {
             *GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
             WHITE,
         );
-        for particle in &self.jet_particles {
+        for particle in &self.state.jet_particles {
             draw_circle(
                 *GRAPHICS_SCALAR * particle.x.value,
                 *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - particle.y).value,
