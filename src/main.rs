@@ -1,6 +1,8 @@
 use std::{io, thread, time::Duration};
 
-use macroquad::{input::{KeyCode, is_key_down}, window::{Conf, next_frame}};
+use macroquad::{color::{BLACK, WHITE}, input::{KeyCode, is_key_down, is_key_pressed}, text::draw_text, window::{Conf, clear_background, next_frame}};
+
+use crate::game::StepOutcome;
 
 mod model;
 mod game;
@@ -13,6 +15,7 @@ async fn main() {
 
 async fn actual_main() {
     let mut newGame = game::Game::new();
+    let mut score = 0;
     loop {
         let mut choice: u8 = 3;
         if is_key_down(KeyCode::A) {
@@ -24,9 +27,30 @@ async fn actual_main() {
         else if is_key_down(KeyCode::W) {
             choice = 2;
         }
-        newGame.step(choice);
+        let result: StepOutcome = newGame.step(choice);
+        score += result.score;
+        if result.finished {
+            break;
+        }
         newGame.draw();
         thread::sleep(Duration::from_millis(100));
+        next_frame().await;
+    }
+
+    loop {
+        clear_background(BLACK);
+        draw_text(
+            &format!("You scored {}", score),
+            100.0,
+            100.0,
+            50.0,
+            WHITE,
+        );
+
+        if is_key_pressed(KeyCode::Escape) {
+            break;
+        }
+
         next_frame().await;
     }
 }

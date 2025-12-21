@@ -1,9 +1,11 @@
 use std::f32::consts::PI;
 
 use lazy_static::lazy_static;
-use macroquad::color::{BLACK, Color, GRAY, LIGHTGRAY, PURPLE, WHITE};
+use macroquad::color::{BLACK, BLUE, Color, GRAY, LIGHTGRAY, PURPLE, WHITE};
 use macroquad::math::Vec2;
-use macroquad::shapes::{DrawRectangleParams, draw_circle, draw_rectangle, draw_rectangle_ex};
+use macroquad::shapes::{
+    DrawRectangleParams, draw_circle, draw_line, draw_rectangle, draw_rectangle_ex,
+};
 use macroquad::window::clear_background;
 use ndarray_rand::rand_distr::num_traits::ToPrimitive;
 use rand;
@@ -29,7 +31,7 @@ lazy_static! {
     static ref MAX_STEPS: u16 = 100;
     static ref MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
     static ref MAX_ANGULAR_VEL: AngularVelocity = AngularVelocity::new::<radian_per_second>(PI);
-    static ref MAX_VEL: Velocity = Velocity::new::<meter_per_second>(PI);
+    static ref MAX_VEL: Velocity = Velocity::new::<meter_per_second>(0.);
     static ref DT: Time = Time::new::<second>(0.1);
     static ref GRAVITY: Acceleration = Acceleration::new::<meter_per_second_squared>(9.81);
 }
@@ -73,15 +75,15 @@ impl Rocket {
     }
 
     fn leg_pos(&self, left: bool) -> Pos {
-        let inversion = if left { 1. } else { -1. };
-        Pos {
-            x: self.pos.x
-                + self.width * self.tilt.cos() * inversion
-                + self.lander_length * (self.tilt + self.lander_angle).cos() * inversion,
-            y: self.pos.y
-                - self.height * self.tilt.sin()
-                - self.lander_length * (self.tilt + self.lander_angle).sin(),
-        }
+        let inversion = if left { -1. } else { 1. };
+        let mut leg_pos = Pos {
+            x: inversion * (self.width / 2. + self.lander_length * self.lander_angle.cos()),
+            y: -(self.height / 2. + self.lander_length * self.lander_angle.cos()),
+        };
+        transform_with_units(&mut leg_pos, self.tilt);
+        leg_pos.x += self.pos.x;
+        leg_pos.y += self.pos.y;
+        leg_pos
     }
 
     fn engine_pos(&self, engine: Engine) -> Vec2 {
@@ -158,8 +160,8 @@ impl Rocket {
             angular_velocity: AngularVelocity::new::<radian_per_second>(0.),
             width: width,
             height: height,
-            lander_angle: Angle::new::<radian>(PI / 3.),
-            lander_length: *ENV_BOX_HEIGHT / 2.0,
+            lander_angle: Angle::new::<radian>(-PI / 3.),
+            lander_length: height,
             engine_strength: Force::new::<newton>(1000.),
             mass: mass,
             engine_dim: width / 4.,
@@ -210,8 +212,8 @@ impl Game {
 }
 
 pub struct StepOutcome {
-    score: i16,
-    finished: bool,
+    pub score: i16,
+    pub finished: bool,
 }
 
 // 0: right engine
@@ -284,8 +286,8 @@ impl Game {
         if self.steps > *MAX_STEPS {
             score -= 5;
         }
-        let left_touching = self.state.leg_pos(true).y > *MIN_HEIGHT;
-        let right_touching = self.state.leg_pos(true).y > *MIN_HEIGHT;
+        let left_touching = self.state.leg_pos(false).y < *MIN_HEIGHT;
+        let right_touching = self.state.leg_pos(true).y < *MIN_HEIGHT;
         if left_touching
             || right_touching
                 && (self.state.angular_velocity > *MAX_ANGULAR_VEL
@@ -344,11 +346,31 @@ impl Game {
                 ),
             );
         }
+        // TODO move all this drawing to rocket
+        let lander_angle = self.state.tilt - self.state.lander_angle;
+        let left_leg_pos: Pos = self.state.leg_pos(false);
+        draw_line(
+            *GRAPHICS_SCALAR * left_leg_pos.x.value,
+            *GRAPHICS_SCALAR * left_leg_pos.y.value,
+            *GRAPHICS_SCALAR
+                * (left_leg_pos.x + self.state.lander_length * lander_angle.cos()).value,
+            *GRAPHICS_SCALAR
+                * (*ENV_BOX_HEIGHT - (left_leg_pos.y + self.state.lander_length * lander_angle.sin())).value,
+            2.,
+            BLUE,
+        );
     }
 }
 
 fn transform(vector: &mut Vec2, angle: Angle) {
     *vector = Vec2 {
+        x: vector.x * angle.cos().value - vector.y * angle.sin().value,
+        y: vector.x * angle.sin().value + vector.y * angle.cos().value,
+    }
+}
+
+fn transform_with_units(vector: &mut Pos, angle: Angle) {
+    *vector = Pos {
         x: vector.x * angle.cos().value - vector.y * angle.sin().value,
         y: vector.x * angle.sin().value + vector.y * angle.cos().value,
     }
