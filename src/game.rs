@@ -167,6 +167,35 @@ impl Rocket {
             engine_dim: width / 4.,
         }
     }
+
+    fn draw(&self) -> () {
+        draw_rectangle_ex(
+            *GRAPHICS_SCALAR * self.pos.x.value,
+            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - self.pos.y).value,
+            *GRAPHICS_SCALAR * self.width.value,
+            *GRAPHICS_SCALAR * self.height.value,
+            DrawRectangleParams {
+                rotation: -self.tilt.value, // radians, inverted bc of stupid convention difference
+                offset: Vec2 { x: 0.5, y: 0.5 },
+                color: PURPLE,
+            },
+        );
+        for engine_type in Engine::iter() {
+            self.draw_engine(engine_type);
+        }
+        let lander_angle = self.tilt - self.lander_angle;
+        let left_leg_pos: Pos = self.leg_pos(false);
+        draw_line(
+            *GRAPHICS_SCALAR * left_leg_pos.x.value,
+            *GRAPHICS_SCALAR * left_leg_pos.y.value,
+            *GRAPHICS_SCALAR
+                * (left_leg_pos.x + self.lander_length * lander_angle.cos()).value,
+            *GRAPHICS_SCALAR
+                * (*ENV_BOX_HEIGHT - (left_leg_pos.y + self.lander_length * lander_angle.sin())).value,
+            2.,
+            BLUE,
+        );
+    }
 }
 
 struct JetParticle {
@@ -319,20 +348,6 @@ impl Game {
             *GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
             WHITE,
         );
-        draw_rectangle_ex(
-            *GRAPHICS_SCALAR * self.state.pos.x.value,
-            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - self.state.pos.y).value,
-            *GRAPHICS_SCALAR * self.state.width.value,
-            *GRAPHICS_SCALAR * self.state.height.value,
-            DrawRectangleParams {
-                rotation: -self.state.tilt.value, // radians, inverted bc of stupid convention difference
-                offset: Vec2 { x: 0.5, y: 0.5 },
-                color: PURPLE,
-            },
-        );
-        for engine_type in Engine::iter() {
-            self.state.draw_engine(engine_type);
-        }
         for particle in &self.jet_particles {
             draw_circle(
                 *GRAPHICS_SCALAR * particle.x.value,
@@ -346,19 +361,7 @@ impl Game {
                 ),
             );
         }
-        // TODO move all this drawing to rocket
-        let lander_angle = self.state.tilt - self.state.lander_angle;
-        let left_leg_pos: Pos = self.state.leg_pos(false);
-        draw_line(
-            *GRAPHICS_SCALAR * left_leg_pos.x.value,
-            *GRAPHICS_SCALAR * left_leg_pos.y.value,
-            *GRAPHICS_SCALAR
-                * (left_leg_pos.x + self.state.lander_length * lander_angle.cos()).value,
-            *GRAPHICS_SCALAR
-                * (*ENV_BOX_HEIGHT - (left_leg_pos.y + self.state.lander_length * lander_angle.sin())).value,
-            2.,
-            BLUE,
-        );
+        self.state.draw();
     }
 }
 
