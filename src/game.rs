@@ -47,6 +47,7 @@ pub struct Pos {
     y: Length,
 }
 
+#[derive(Clone)]
 struct JetParticle {
     x: Length,
     y: Length,
@@ -56,14 +57,22 @@ struct JetParticle {
 }
 
 impl JetParticle {
-    fn new(x: Length, y: Length, direction: Angle) -> Self {
+    fn new() -> Self {
         Self {
-            x: x,
-            y: y,
-            vx: direction.cos() * (*PARTICLE_SPEED),
-            vy: direction.sin() * (*PARTICLE_SPEED),
+            x: Length::new::<meter>(0.),
+            y: Length::new::<meter>(0.),
+            vx: Velocity::new::<meter_per_second>(0.),
+            vy: Velocity::new::<meter_per_second>(0.),
             life: Time::new::<second>(0.),
         }
+    }
+
+    fn activate(&mut self, x: Length, y: Length, direction: Angle) {
+        self.x = x;
+        self.y = y;
+        self.life = Time::new::<second>(0.);
+        self.vx = *PARTICLE_SPEED * direction.cos();
+        self.vy = *PARTICLE_SPEED * direction.sin();
     }
 
     fn update(&mut self) {
@@ -73,7 +82,6 @@ impl JetParticle {
     }
 }
 
-// TODO should this contain the engine states?
 pub struct Rocket {
     pos: Pos,
     vx: Velocity,
@@ -82,12 +90,11 @@ pub struct Rocket {
     angular_velocity: AngularVelocity,
     width: Length,
     height: Length,
-    mass: Mass,
     lander_angle: Angle,
     lander_length: Length,
-    engine_strength: Force,
     engine_dim: Length,
-    jet_particles: Vec<JetParticle>,
+    jet_particles: [JetParticle; 15],
+    particle_index: usize,
     translational_engine_accel: Acceleration,
     angular_engine_accel: AngularAcceleration,
 }
@@ -123,12 +130,11 @@ impl Rocket {
             height: height,
             lander_angle: Angle::new::<radian>(-PI / 3.),
             lander_length: height,
-            engine_strength: engine_strength,
-            mass: mass,
             engine_dim: width / 4.,
-            jet_particles: vec![],
+            jet_particles: core::array::from_fn(|_| JetParticle::new()),
+            particle_index: 0,
             translational_engine_accel: engine_accel,
-            angular_engine_accel: side_accel
+            angular_engine_accel: side_accel,
         }
     }
 
@@ -194,33 +200,37 @@ impl Rocket {
                 self.vy -= self.translational_engine_accel * (*DT) * self.tilt.sin();
                 self.angular_velocity += AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let right_engine_pos = self.engine_pos(Engine::RIGHT);
-                self.jet_particles.push(JetParticle::new(
+                self.jet_particles[self.particle_index].activate(
                     self.pos.x + Length::new::<meter>(right_engine_pos.x),
                     self.pos.y + Length::new::<meter>(right_engine_pos.y),
                     self.tilt,
-                ));
+                );
             }
             Engine::LEFT => {
                 self.vx += self.translational_engine_accel * (*DT) * self.tilt.cos();
                 self.vy += self.translational_engine_accel * (*DT) * self.tilt.sin();
                 self.angular_velocity -= AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let left_engine_pos = self.engine_pos(Engine::LEFT);
-                self.jet_particles.push(JetParticle::new(
+                self.jet_particles[self.particle_index].activate(
                     self.pos.x + Length::new::<meter>(left_engine_pos.x),
                     self.pos.y + Length::new::<meter>(left_engine_pos.y),
                     self.tilt - Angle::new::<radian>(PI),
-                ));
+                );
             }
             Engine::DOWN => {
                 self.vx -= self.translational_engine_accel * 2. * (*DT) * self.tilt.sin();
                 self.vy += self.translational_engine_accel * 2. * (*DT) * self.tilt.cos();
                 let down_engine_pos = self.engine_pos(Engine::DOWN);
-                self.jet_particles.push(JetParticle::new(
+                self.jet_particles[self.particle_index].activate(
                     self.pos.x + Length::new::<meter>(down_engine_pos.x),
                     self.pos.y + Length::new::<meter>(down_engine_pos.y),
                     self.tilt - Angle::new::<radian>(PI / 2.),
-                ));
+                );
             }
+        }
+        self.particle_index += 1;
+        if self.particle_index >= self.jet_particles.len() {
+            self.particle_index = 0;
         }
     }
 
@@ -232,7 +242,6 @@ impl Rocket {
         for particle in &mut self.jet_particles {
             particle.update();
         }
-        self.jet_particles.retain(|p| p.life < *PARTICLE_LIFTIME);
     }
 
     fn draw_engine(&self, engine: Engine) {
