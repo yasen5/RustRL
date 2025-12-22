@@ -123,13 +123,12 @@ impl Rocket {
         }
     }
 
-    fn to_vec(&self) -> Vec<f32> {
-        return vec![
-            self.pos.x.value,
-            self.pos.y.value,
-            self.vx.value,
-            self.vy.value,
-        ];
+    fn to_vec(&self, output: &mut [f32; 5]) {
+        output[0] = self.pos.x.value;
+        output[1] = self.pos.y.value;
+        output[2] = self.vx.value;
+        output[3] = self.vy.value;
+        output[4] = self.angular_velocity.value;
     }
 
     fn leg_pos(&self, left: bool, start: bool) -> Pos {
@@ -334,10 +333,9 @@ impl Game {
         }
         let left_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
         let right_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
-        if left_touching
-            || right_touching
-                && (self.state.angular_velocity > *MAX_ANGULAR_VEL
-                    || self.state.vx.hypot(self.state.vy) < *MAX_VEL)
+        if (left_touching || right_touching)
+            && (self.state.angular_velocity > *MAX_ANGULAR_VEL
+                || self.state.vx.hypot(self.state.vy) < *MAX_VEL)
         {
             finished = true;
             score -= 50;
@@ -377,16 +375,20 @@ impl Game {
     }
 }
 
+#[inline]
 fn transform(vector: &mut Vec2, angle: Angle) {
+    let (sin, cos) = angle.value.sin_cos();
     *vector = Vec2 {
-        x: vector.x * angle.cos().value - vector.y * angle.sin().value,
-        y: vector.x * angle.sin().value + vector.y * angle.cos().value,
+        x: vector.x * cos - vector.y * sin,
+        y: vector.x * sin + vector.y * cos,
     }
 }
 
+#[inline]
 fn transform_with_units(vector: &mut Pos, angle: Angle) {
+    let (sin, cos) = angle.value.sin_cos();
     *vector = Pos {
-        x: vector.x * angle.cos().value - vector.y * angle.sin().value,
-        y: vector.x * angle.sin().value + vector.y * angle.cos().value,
+        x: vector.x * cos - vector.y * sin,
+        y: vector.x * sin + vector.y * cos,
     }
 }
