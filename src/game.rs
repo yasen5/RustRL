@@ -88,6 +88,8 @@ pub struct Rocket {
     engine_strength: Force,
     engine_dim: Length,
     jet_particles: Vec<JetParticle>,
+    translational_engine_accel: Acceleration,
+    angular_engine_accel: AngularAcceleration,
 }
 
 impl Rocket {
@@ -95,6 +97,11 @@ impl Rocket {
         let mass = Mass::new::<kilogram>(50.);
         let width = *ENV_BOX_WIDTH / 10.0;
         let height = *ENV_BOX_HEIGHT / 20.0;
+        let engine_strength = Force::new::<newton>(1000.);
+        let engine_accel = engine_strength / mass;
+        let horizontal_moi: MomentOfInertia = mass * height * height / 12.;
+        let side_engine_torque: Torque = (engine_strength * height / 2.0).into();
+        let side_accel: AngularAcceleration = (side_engine_torque / horizontal_moi / 30.).into();
         Self {
             pos: Pos {
                 x: if rand_x {
@@ -116,10 +123,12 @@ impl Rocket {
             height: height,
             lander_angle: Angle::new::<radian>(-PI / 3.),
             lander_length: height,
-            engine_strength: Force::new::<newton>(1000.),
+            engine_strength: engine_strength,
             mass: mass,
             engine_dim: width / 4.,
             jet_particles: vec![],
+            translational_engine_accel: engine_accel,
+            angular_engine_accel: side_accel
         }
     }
 
@@ -179,15 +188,11 @@ impl Rocket {
     }
 
     fn fire_engine(&mut self, engine: Engine) {
-        let ENGINE_ACCEL = self.engine_strength / self.mass;
-        let HORIZONTAL_MOI: MomentOfInertia = self.mass * self.height * self.height / 12.;
-        let SIDE_ENGINE_TORQUE: Torque = (self.engine_strength * self.height / 2.0).into();
-        let SIDE_ACCEL: AngularAcceleration = (SIDE_ENGINE_TORQUE / HORIZONTAL_MOI / 30.).into();
         match engine {
             Engine::RIGHT => {
-                self.vx -= ENGINE_ACCEL * (*DT) * self.tilt.cos();
-                self.vy -= ENGINE_ACCEL * (*DT) * self.tilt.sin();
-                self.angular_velocity += AngularVelocity::from(SIDE_ACCEL * (*DT));
+                self.vx -= self.translational_engine_accel * (*DT) * self.tilt.cos();
+                self.vy -= self.translational_engine_accel * (*DT) * self.tilt.sin();
+                self.angular_velocity += AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let right_engine_pos = self.engine_pos(Engine::RIGHT);
                 self.jet_particles.push(JetParticle::new(
                     self.pos.x + Length::new::<meter>(right_engine_pos.x),
@@ -196,9 +201,9 @@ impl Rocket {
                 ));
             }
             Engine::LEFT => {
-                self.vx += ENGINE_ACCEL * (*DT) * self.tilt.cos();
-                self.vy += ENGINE_ACCEL * (*DT) * self.tilt.sin();
-                self.angular_velocity -= AngularVelocity::from(SIDE_ACCEL * (*DT));
+                self.vx += self.translational_engine_accel * (*DT) * self.tilt.cos();
+                self.vy += self.translational_engine_accel * (*DT) * self.tilt.sin();
+                self.angular_velocity -= AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let left_engine_pos = self.engine_pos(Engine::LEFT);
                 self.jet_particles.push(JetParticle::new(
                     self.pos.x + Length::new::<meter>(left_engine_pos.x),
@@ -207,8 +212,8 @@ impl Rocket {
                 ));
             }
             Engine::DOWN => {
-                self.vx -= ENGINE_ACCEL * 2. * (*DT) * self.tilt.sin();
-                self.vy += ENGINE_ACCEL * 2. * (*DT) * self.tilt.cos();
+                self.vx -= self.translational_engine_accel * 2. * (*DT) * self.tilt.sin();
+                self.vy += self.translational_engine_accel * 2. * (*DT) * self.tilt.cos();
                 let down_engine_pos = self.engine_pos(Engine::DOWN);
                 self.jet_particles.push(JetParticle::new(
                     self.pos.x + Length::new::<meter>(down_engine_pos.x),
