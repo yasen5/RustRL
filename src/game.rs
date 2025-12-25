@@ -11,7 +11,7 @@ use macroquad::{
     text::draw_text,
     window::{clear_background, next_frame},
 };
-use ndarray::{Array1};
+use ndarray::Array1;
 use rand;
 use std::{thread, time::Duration};
 use strum::IntoEnumIterator;
@@ -24,20 +24,21 @@ use uom::si::f32::*;
 use uom::si::force::newton;
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
-use uom::si::time::second;
+use uom::si::time::{millisecond, second};
 use uom::si::velocity::meter_per_second;
 
 lazy_static! {
-    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(500.);
-    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(500.);
+    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(100.);
+    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(100.);
     static ref GRAPHICS_SCALAR: f32 = 800. / ENV_BOX_HEIGHT.value;
-    static ref PARTICLE_SPEED: Velocity = Velocity::new::<meter_per_second>(128.);
-    static ref PARTICLE_RADIUS: Length = Length::new::<meter>(4.);
+    static ref PARTICLE_SPEED: Velocity = Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
+    static ref PARTICLE_RADIUS: Length = *ENV_BOX_HEIGHT / 100.;
     static ref PARTICLE_LIFTIME: Time = Time::new::<second>(1.);
     static ref MAX_STEPS: u16 = 100;
     static ref MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
-    static ref MAX_ANGULAR_VEL: AngularVelocity = AngularVelocity::new::<radian_per_second>(PI);
-    static ref MAX_VEL: Velocity = Velocity::new::<meter_per_second>(0.);
+    static ref MAX_ANGULAR_VEL: AngularVelocity =
+        AngularVelocity::new::<radian_per_second>(PI / 4.);
+    static ref MAX_VEL: Velocity = Velocity::new::<meter_per_second>(5.);
     static ref DT: Time = Time::new::<second>(0.1);
     static ref GRAVITY: Acceleration = Acceleration::new::<meter_per_second_squared>(9.81);
 }
@@ -225,8 +226,8 @@ impl Rocket {
                 );
             }
             Engine::DOWN => {
-                self.vx -= self.translational_engine_accel * 2. * (*DT) * self.tilt.sin();
-                self.vy += self.translational_engine_accel * 2. * (*DT) * self.tilt.cos();
+                self.vx -= self.translational_engine_accel * (*DT) * self.tilt.sin();
+                self.vy += self.translational_engine_accel * (*DT) * self.tilt.cos();
                 let down_engine_pos = self.engine_pos(Engine::DOWN);
                 self.jet_particles[self.particle_index].activate(
                     self.pos.x + down_engine_pos.x,
@@ -279,20 +280,8 @@ impl Rocket {
         let left_end: Pos = self.leg_pos(true, false);
         let right_start: Pos = self.leg_pos(false, true);
         let right_end: Pos = self.leg_pos(false, false);
-        adjusted_draw_line(
-            left_start.x,
-            left_start.y,
-            left_end.x,
-            left_end.y,
-            BLUE,
-        );
-        adjusted_draw_line(
-            right_start.x,
-            right_start.y,
-            right_end.x,
-            right_end.y,
-            BLUE,
-        );
+        adjusted_draw_line(left_start.x, left_start.y, left_end.x, left_end.y, BLUE);
+        adjusted_draw_line(right_start.x, right_start.y, right_end.x, right_end.y, BLUE);
         for particle in &self.jet_particles {
             adjusted_draw_circle(
                 particle.x,
@@ -357,11 +346,11 @@ impl Game {
             score -= 5;
             finished = true;
         }
-        let left_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
-        let right_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
+        let left_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
+        let right_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
         if (left_touching || right_touching)
             && (self.state.angular_velocity > *MAX_ANGULAR_VEL
-                || self.state.vx.hypot(self.state.vy) < *MAX_VEL)
+                || self.state.vx.hypot(self.state.vy) > *MAX_VEL)
         {
             finished = true;
             score -= 50;
@@ -474,7 +463,7 @@ pub async fn run_game() {
         }
 
         new_game.draw();
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(DT.get::<millisecond>() as u64));
         next_frame().await;
 
         let result = new_game.step(choice);
