@@ -1,66 +1,25 @@
-use std::{thread, time::Duration};
-
-use macroquad::{color::{BLACK, WHITE}, input::{KeyCode, is_key_down, is_key_pressed}, text::draw_text, window::{Conf, clear_background, next_frame}};
-
-use crate::game::StepOutcome;
-
-mod model;
-mod game;
-
-#[macroquad::main(window_conf)]
-async fn main() {
-    println!("Hello, world!");
-    actual_main().await;
-}
-
-async fn actual_main() {
-    let mut new_game = game::Game::new();
-    let mut score = 0;
-    loop {
-        let mut choice: u8 = 3;
-        if is_key_down(KeyCode::A) {
-            choice = 1;
+use lunar_lander_rl::{game, model};
+use ndarray::{Array, Array1};
+fn main() {
+    let mut score: i16 = 0;
+    let mut state: Array1<f32> = Array::from_elem(5, 0.);
+    let mut agent: model::Model = model::Model::new(4);
+    agent.add_layer(Box::new(model::LinearLayer::new(5, 256)));
+    agent.add_layer(Box::new(model::LinearLayer::new(256, 64)));
+    agent.add_layer(Box::new(model::LinearLayer::new(64, 4)));
+    let mut new_game: game::Game = game::Game::new();
+    for _ in 0..10000000 {
+        new_game.state().to_vec(&mut state);
+        let choice = agent
+            .forward(&state)
+            .indexed_iter()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .map(|(idx, _)| idx)
+            .unwrap_or(0);
+        let outcome: game::StepOutcome = new_game.step(choice);
+        score += outcome.score;
+        if outcome.finished {
+            new_game.reset();
         }
-        else if is_key_down(KeyCode::D) {
-            choice = 0;
-        }
-        else if is_key_down(KeyCode::W) {
-            choice = 2;
-        }
-        let result: StepOutcome = new_game.step(choice);
-        score += result.score;
-        if result.finished {
-            break;
-        }
-        new_game.draw();
-        thread::sleep(Duration::from_millis(100));
-        next_frame().await;
-    }
-
-    loop {
-        clear_background(BLACK);
-        draw_text(
-            &format!("You scored {}", score),
-            100.0,
-            100.0,
-            50.0,
-            WHITE,
-        );
-
-        if is_key_pressed(KeyCode::Escape) {
-            break;
-        }
-
-        next_frame().await;
-    }
-}
-
-fn window_conf() -> Conf {
-    Conf {
-        window_title: "Lunar Lander".to_string(),
-        window_width: 800,
-        window_height: 800,
-        fullscreen: false,
-        ..Default::default()
     }
 }

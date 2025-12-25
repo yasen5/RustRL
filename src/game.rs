@@ -6,8 +6,14 @@ use macroquad::math::Vec2;
 use macroquad::shapes::{
     DrawRectangleParams, draw_circle, draw_line, draw_rectangle, draw_rectangle_ex,
 };
-use macroquad::window::clear_background;
+use macroquad::{
+    input::{KeyCode, is_key_down, is_key_pressed},
+    text::draw_text,
+    window::{Conf, clear_background, next_frame},
+};
+use ndarray::{Array, Array1};
 use rand;
+use std::{thread, time::Duration};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uom::si::acceleration::meter_per_second_squared;
@@ -138,7 +144,7 @@ impl Rocket {
         }
     }
 
-    fn to_vec(&self, output: &mut [f32; 5]) {
+    pub fn to_vec(&self, output: &mut Array1<f32>) {
         output[0] = self.pos.x.value;
         output[1] = self.pos.y.value;
         output[2] = self.vx.value;
@@ -322,7 +328,7 @@ pub struct StepOutcome {
 // 3: no engines firing
 impl Game {
     #[allow(non_snake_case)]
-    pub fn step(&mut self, choice: u8) -> StepOutcome {
+    pub fn step(&mut self, choice: usize) -> StepOutcome {
         // TODO move constants
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
@@ -363,6 +369,10 @@ impl Game {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.state = Rocket::new(false, false, 0., 0.);
+    }
+
     pub fn draw(&self) {
         clear_background(BLACK);
         draw_rectangle(
@@ -387,6 +397,11 @@ impl Game {
         }
         self.state.draw();
     }
+
+    #[inline]
+    pub fn state(&self) -> &Rocket {
+        &self.state
+    }
 }
 
 #[inline]
@@ -404,5 +419,49 @@ fn transform_with_units(vector: &mut Pos, angle: Angle) {
     *vector = Pos {
         x: vector.x * cos - vector.y * sin,
         y: vector.x * sin + vector.y * cos,
+    }
+}
+
+pub async fn run_game() {
+    let mut new_game = Game::new();
+    let mut score = 0;
+
+    loop {
+        let mut choice: usize = 3;
+        if is_key_down(KeyCode::A) {
+            choice = 1;
+        } else if is_key_down(KeyCode::D) {
+            choice = 0;
+        } else if is_key_down(KeyCode::W) {
+            choice = 2;
+        }
+
+        new_game.draw();
+        thread::sleep(Duration::from_millis(100));
+        next_frame().await;
+
+        let result = new_game.step(choice);
+        score += result.score;
+
+        if result.finished {
+            break;
+        }
+    }
+
+    loop {
+        clear_background(BLACK);
+        draw_text(
+            &format!("You scored {}", score),
+            100.0,
+            100.0,
+            50.0,
+            WHITE,
+        );
+
+        if is_key_pressed(KeyCode::Escape) {
+            break;
+        }
+
+        next_frame().await;
     }
 }
