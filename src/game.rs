@@ -1,10 +1,12 @@
 use std::f32::consts::PI;
 
+use crate::graphics::ENV_BOX_HEIGHT;
+use crate::graphics::ENV_BOX_WIDTH;
+use crate::graphics;
 use lazy_static::lazy_static;
 use macroquad::color::{BLACK, BLUE, Color, GRAY, PURPLE, WHITE};
-use macroquad::math::Vec2;
 use macroquad::shapes::{
-    DrawRectangleParams, draw_circle, draw_line, draw_rectangle, draw_rectangle_ex,
+    draw_rectangle,
 };
 use macroquad::{
     input::{KeyCode, is_key_down, is_key_pressed},
@@ -28,10 +30,8 @@ use uom::si::time::{millisecond, second};
 use uom::si::velocity::meter_per_second;
 
 lazy_static! {
-    static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(100.);
-    static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(100.);
-    static ref GRAPHICS_SCALAR: f32 = 800. / ENV_BOX_HEIGHT.value;
-    static ref PARTICLE_SPEED: Velocity = Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
+    static ref PARTICLE_SPEED: Velocity =
+        Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
     static ref PARTICLE_RADIUS: Length = *ENV_BOX_HEIGHT / 100.;
     static ref PARTICLE_LIFTIME: Time = Time::new::<second>(1.);
     static ref MAX_STEPS: u16 = 100;
@@ -51,8 +51,8 @@ enum Engine {
 }
 
 pub struct Pos {
-    x: Length,
-    y: Length,
+    pub x: Length,
+    pub y: Length,
 }
 
 #[derive(Clone)]
@@ -169,7 +169,7 @@ impl Rocket {
                 self.height / 2. + self.lander_length * self.lander_angle.cos()
             }),
         };
-        transform_with_units(&mut leg_pos, self.tilt);
+        graphics::transform_with_units(&mut leg_pos, self.tilt);
         leg_pos.x += self.pos.x;
         leg_pos.y += self.pos.y;
         leg_pos
@@ -197,7 +197,7 @@ impl Rocket {
                 }
             }
         }
-        transform_with_units(&mut engine_center_offset, self.tilt);
+        graphics::transform_with_units(&mut engine_center_offset, self.tilt);
         engine_center_offset
     }
 
@@ -254,7 +254,7 @@ impl Rocket {
 
     fn draw_engine(&self, engine: Engine) {
         let engine_center_offset = self.engine_pos(engine);
-        adjusted_draw_rectangle_ex(
+        graphics::adjusted_draw_rectangle_ex(
             engine_center_offset.x + self.pos.x,
             engine_center_offset.y + self.pos.y,
             self.engine_dim,
@@ -265,7 +265,7 @@ impl Rocket {
     }
 
     fn draw(&self) -> () {
-        adjusted_draw_rectangle_ex(
+        graphics::adjusted_draw_rectangle_ex(
             self.pos.x,
             self.pos.y,
             self.width,
@@ -280,10 +280,10 @@ impl Rocket {
         let left_end: Pos = self.leg_pos(true, false);
         let right_start: Pos = self.leg_pos(false, true);
         let right_end: Pos = self.leg_pos(false, false);
-        adjusted_draw_line(left_start.x, left_start.y, left_end.x, left_end.y, BLUE);
-        adjusted_draw_line(right_start.x, right_start.y, right_end.x, right_end.y, BLUE);
+        graphics::adjusted_draw_line(left_start.x, left_start.y, left_end.x, left_end.y, BLUE);
+        graphics::adjusted_draw_line(right_start.x, right_start.y, right_end.x, right_end.y, BLUE);
         for particle in &self.jet_particles {
-            adjusted_draw_circle(
+            graphics::adjusted_draw_circle(
                 particle.x,
                 particle.y,
                 *PARTICLE_RADIUS,
@@ -372,9 +372,9 @@ impl Game {
         clear_background(BLACK);
         draw_rectangle(
             0.,
-            *GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value * 4. / 5.),
-            *GRAPHICS_SCALAR * ENV_BOX_WIDTH.value,
-            *GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
+            *graphics::GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value * 4. / 5.),
+            *graphics::GRAPHICS_SCALAR * ENV_BOX_WIDTH.value,
+            *graphics::GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
             WHITE,
         );
         self.state.draw();
@@ -384,68 +384,6 @@ impl Game {
     pub fn state(&self) -> &Rocket {
         &self.state
     }
-}
-
-#[inline]
-fn transform(vector: &mut Vec2, angle: Angle) {
-    let (sin, cos) = angle.value.sin_cos();
-    *vector = Vec2 {
-        x: vector.x * cos - vector.y * sin,
-        y: vector.x * sin + vector.y * cos,
-    }
-}
-
-#[inline]
-fn transform_with_units(vector: &mut Pos, angle: Angle) {
-    let (sin, cos) = angle.value.sin_cos();
-    *vector = Pos {
-        x: vector.x * cos - vector.y * sin,
-        y: vector.x * sin + vector.y * cos,
-    }
-}
-
-#[inline]
-fn adjusted_draw_circle(x: Length, y: Length, radius: Length, color: Color) {
-    draw_circle(
-        *GRAPHICS_SCALAR * x.value,
-        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y).value,
-        *GRAPHICS_SCALAR * radius.value,
-        color,
-    );
-}
-
-#[inline]
-fn adjusted_draw_rectangle_ex(
-    x: Length,
-    y: Length,
-    w: Length,
-    h: Length,
-    rotation: Angle,
-    color: Color,
-) {
-    draw_rectangle_ex(
-        *GRAPHICS_SCALAR * x.value,
-        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y).value,
-        *GRAPHICS_SCALAR * w.value,
-        *GRAPHICS_SCALAR * h.value,
-        DrawRectangleParams {
-            rotation: -rotation.value,
-            offset: Vec2 { x: 0.5, y: 0.5 },
-            color: color,
-        },
-    );
-}
-
-#[inline]
-fn adjusted_draw_line(x1: Length, y1: Length, x2: Length, y2: Length, color: Color) {
-    draw_line(
-        *GRAPHICS_SCALAR * x1.value,
-        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y1).value,
-        *GRAPHICS_SCALAR * x2.value,
-        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y2).value,
-        2.,
-        color,
-    );
 }
 
 pub async fn run_game() {
