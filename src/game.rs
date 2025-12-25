@@ -9,13 +9,14 @@ use macroquad::shapes::{
 use macroquad::{
     input::{KeyCode, is_key_down, is_key_pressed},
     text::draw_text,
-    window::{Conf, clear_background, next_frame},
+    window::{clear_background, next_frame},
 };
-use ndarray::{Array, Array1};
+use ndarray::{Array1};
 use rand;
 use std::{thread, time::Duration};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+use uom::ConstZero;
 use uom::si::acceleration::meter_per_second_squared;
 use uom::si::angle::radian;
 use uom::si::angular_velocity::radian_per_second;
@@ -173,29 +174,29 @@ impl Rocket {
         leg_pos
     }
 
-    fn engine_pos(&self, engine: Engine) -> Vec2 {
-        let mut engine_center_offset: Vec2;
+    fn engine_pos(&self, engine: Engine) -> Pos {
+        let mut engine_center_offset: Pos;
         match engine {
             Engine::RIGHT => {
-                engine_center_offset = Vec2 {
-                    x: (self.width / 2. + self.engine_dim / 2.).value,
-                    y: (self.height / 2.).value,
+                engine_center_offset = Pos {
+                    x: (self.width / 2. + self.engine_dim / 2.),
+                    y: (self.height / 2.),
                 };
             }
             Engine::LEFT => {
-                engine_center_offset = Vec2 {
-                    x: -(self.width / 2. + self.engine_dim / 2.).value,
-                    y: (self.height / 2.).value,
+                engine_center_offset = Pos {
+                    x: -(self.width / 2. + self.engine_dim / 2.),
+                    y: (self.height / 2.),
                 };
             }
             Engine::DOWN => {
-                engine_center_offset = Vec2 {
-                    x: 0.,
-                    y: -(self.height / 2.).value,
+                engine_center_offset = Pos {
+                    x: Length::ZERO,
+                    y: -(self.height / 2.),
                 }
             }
         }
-        transform(&mut engine_center_offset, self.tilt);
+        transform_with_units(&mut engine_center_offset, self.tilt);
         engine_center_offset
     }
 
@@ -207,8 +208,8 @@ impl Rocket {
                 self.angular_velocity += AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let right_engine_pos = self.engine_pos(Engine::RIGHT);
                 self.jet_particles[self.particle_index].activate(
-                    self.pos.x + Length::new::<meter>(right_engine_pos.x),
-                    self.pos.y + Length::new::<meter>(right_engine_pos.y),
+                    self.pos.x + right_engine_pos.x,
+                    self.pos.y + right_engine_pos.y,
                     self.tilt,
                 );
             }
@@ -218,9 +219,9 @@ impl Rocket {
                 self.angular_velocity -= AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let left_engine_pos = self.engine_pos(Engine::LEFT);
                 self.jet_particles[self.particle_index].activate(
-                    self.pos.x + Length::new::<meter>(left_engine_pos.x),
-                    self.pos.y + Length::new::<meter>(left_engine_pos.y),
-                    self.tilt - Angle::new::<radian>(PI),
+                    self.pos.x + left_engine_pos.x,
+                    self.pos.y + left_engine_pos.y,
+                    self.tilt - Angle::HALF_TURN,
                 );
             }
             Engine::DOWN => {
@@ -228,8 +229,8 @@ impl Rocket {
                 self.vy += self.translational_engine_accel * 2. * (*DT) * self.tilt.cos();
                 let down_engine_pos = self.engine_pos(Engine::DOWN);
                 self.jet_particles[self.particle_index].activate(
-                    self.pos.x + Length::new::<meter>(down_engine_pos.x),
-                    self.pos.y + Length::new::<meter>(down_engine_pos.y),
+                    self.pos.x + down_engine_pos.x,
+                    self.pos.y + down_engine_pos.y,
                     self.tilt - Angle::new::<radian>(PI / 2.),
                 );
             }
@@ -252,30 +253,24 @@ impl Rocket {
 
     fn draw_engine(&self, engine: Engine) {
         let engine_center_offset = self.engine_pos(engine);
-        draw_rectangle_ex(
-            *GRAPHICS_SCALAR * (engine_center_offset.x + self.pos.x.value),
-            *GRAPHICS_SCALAR * (ENV_BOX_HEIGHT.value - (engine_center_offset.y + self.pos.y.value)),
-            *GRAPHICS_SCALAR * self.engine_dim.value,
-            *GRAPHICS_SCALAR * self.engine_dim.value,
-            DrawRectangleParams {
-                offset: Vec2 { x: 0.5, y: 0.5 },
-                rotation: -self.tilt.value, // inverted bc of dumb macroquad convention of positive being clockwise
-                color: GRAY,
-            },
+        adjusted_draw_rectangle_ex(
+            engine_center_offset.x + self.pos.x,
+            engine_center_offset.y + self.pos.y,
+            self.engine_dim,
+            self.engine_dim,
+            self.tilt,
+            GRAY,
         );
     }
 
     fn draw(&self) -> () {
-        draw_rectangle_ex(
-            *GRAPHICS_SCALAR * self.pos.x.value,
-            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - self.pos.y).value,
-            *GRAPHICS_SCALAR * self.width.value,
-            *GRAPHICS_SCALAR * self.height.value,
-            DrawRectangleParams {
-                rotation: -self.tilt.value, // radians, inverted bc of stupid convention difference
-                offset: Vec2 { x: 0.5, y: 0.5 },
-                color: PURPLE,
-            },
+        adjusted_draw_rectangle_ex(
+            self.pos.x,
+            self.pos.y,
+            self.width,
+            self.height,
+            self.tilt,
+            PURPLE,
         );
         for engine_type in Engine::iter() {
             self.draw_engine(engine_type);
@@ -284,22 +279,33 @@ impl Rocket {
         let left_end: Pos = self.leg_pos(true, false);
         let right_start: Pos = self.leg_pos(false, true);
         let right_end: Pos = self.leg_pos(false, false);
-        draw_line(
-            *GRAPHICS_SCALAR * left_start.x.value,
-            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - left_start.y).value,
-            *GRAPHICS_SCALAR * left_end.x.value,
-            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - left_end.y).value,
-            2.,
+        adjusted_draw_line(
+            left_start.x,
+            left_start.y,
+            left_end.x,
+            left_end.y,
             BLUE,
         );
-        draw_line(
-            *GRAPHICS_SCALAR * right_start.x.value,
-            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - right_start.y).value,
-            *GRAPHICS_SCALAR * right_end.x.value,
-            *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - right_end.y).value,
-            2.,
+        adjusted_draw_line(
+            right_start.x,
+            right_start.y,
+            right_end.x,
+            right_end.y,
             BLUE,
         );
+        for particle in &self.jet_particles {
+            adjusted_draw_circle(
+                particle.x,
+                particle.y,
+                *PARTICLE_RADIUS,
+                Color::new(
+                    1.,
+                    1.,
+                    1.,
+                    ((*PARTICLE_LIFTIME - particle.life) / *PARTICLE_LIFTIME).value,
+                ),
+            );
+        }
     }
 }
 
@@ -382,19 +388,6 @@ impl Game {
             *GRAPHICS_SCALAR * ENV_BOX_HEIGHT.value / 5.,
             WHITE,
         );
-        for particle in &self.state.jet_particles {
-            draw_circle(
-                *GRAPHICS_SCALAR * particle.x.value,
-                *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - particle.y).value,
-                *GRAPHICS_SCALAR * PARTICLE_RADIUS.value,
-                Color::new(
-                    1.,
-                    1.,
-                    1.,
-                    ((*PARTICLE_LIFTIME - particle.life) / *PARTICLE_LIFTIME).value,
-                ),
-            );
-        }
         self.state.draw();
     }
 
@@ -420,6 +413,50 @@ fn transform_with_units(vector: &mut Pos, angle: Angle) {
         x: vector.x * cos - vector.y * sin,
         y: vector.x * sin + vector.y * cos,
     }
+}
+
+#[inline]
+fn adjusted_draw_circle(x: Length, y: Length, radius: Length, color: Color) {
+    draw_circle(
+        *GRAPHICS_SCALAR * x.value,
+        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y).value,
+        *GRAPHICS_SCALAR * radius.value,
+        color,
+    );
+}
+
+#[inline]
+fn adjusted_draw_rectangle_ex(
+    x: Length,
+    y: Length,
+    w: Length,
+    h: Length,
+    rotation: Angle,
+    color: Color,
+) {
+    draw_rectangle_ex(
+        *GRAPHICS_SCALAR * x.value,
+        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y).value,
+        *GRAPHICS_SCALAR * w.value,
+        *GRAPHICS_SCALAR * h.value,
+        DrawRectangleParams {
+            rotation: -rotation.value,
+            offset: Vec2 { x: 0.5, y: 0.5 },
+            color: color,
+        },
+    );
+}
+
+#[inline]
+fn adjusted_draw_line(x1: Length, y1: Length, x2: Length, y2: Length, color: Color) {
+    draw_line(
+        *GRAPHICS_SCALAR * x1.value,
+        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y1).value,
+        *GRAPHICS_SCALAR * x2.value,
+        *GRAPHICS_SCALAR * (*ENV_BOX_HEIGHT - y2).value,
+        2.,
+        color,
+    );
 }
 
 pub async fn run_game() {
@@ -450,13 +487,7 @@ pub async fn run_game() {
 
     loop {
         clear_background(BLACK);
-        draw_text(
-            &format!("You scored {}", score),
-            100.0,
-            100.0,
-            50.0,
-            WHITE,
-        );
+        draw_text(&format!("You scored {}", score), 100.0, 100.0, 50.0, WHITE);
 
         if is_key_pressed(KeyCode::Escape) {
             break;
