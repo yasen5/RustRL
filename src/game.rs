@@ -299,22 +299,21 @@ impl Rocket {
 }
 
 pub struct Game {
-    state: Rocket,
-    steps: u16,
+    pub state: Rocket,
+    pub action_space: usize,
+    pub observation_space: usize,
+    pub steps: u16,
 }
 
 impl Game {
     pub fn new() -> Self {
         Self {
             state: Rocket::new(false, false, 0., 0.),
+            action_space: 4,
+            observation_space: 5,
             steps: 0,
         }
     }
-}
-
-pub struct StepOutcome {
-    pub score: i16,
-    pub finished: bool,
 }
 
 // 0: right engine
@@ -323,7 +322,7 @@ pub struct StepOutcome {
 // 3: no engines firing
 impl Game {
     #[allow(non_snake_case)]
-    pub fn step(&mut self, choice: usize) -> StepOutcome {
+    pub fn step(&mut self, choice: usize) -> (i16, bool) {
         // TODO move constants
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
@@ -358,10 +357,7 @@ impl Game {
             finished = true;
             score += 50;
         }
-        StepOutcome {
-            score: score,
-            finished: finished,
-        }
+        (score, finished)
     }
 
     pub fn reset(&mut self) {
@@ -404,10 +400,10 @@ pub async fn run_game() {
         thread::sleep(Duration::from_millis(DT.get::<millisecond>() as u64));
         next_frame().await;
 
-        let result = new_game.step(choice);
-        score += result.score;
+        let (reward, finished) = new_game.step(choice);
+        score += reward;
 
-        if result.finished {
+        if finished {
             break;
         }
     }

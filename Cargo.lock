@@ -465,6 +465,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
+
+[[package]]
 name = "elsa"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -543,6 +549,12 @@ dependencies = [
  "crc32fast",
  "miniz_oxide",
 ]
+
+[[package]]
+name = "float-ord"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ce81f49ae8a0482e4c55ea62ebbd7e5a686af544c00b9d090bba3ff9be97b3d"
 
 [[package]]
 name = "fnv"
@@ -1011,7 +1023,9 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 name = "lunar_lander_rl"
 version = "0.1.0"
 dependencies = [
+ "dyn-clone",
  "flamegraph",
+ "float-ord",
  "lazy_static",
  "macroquad",
  "ndarray",
