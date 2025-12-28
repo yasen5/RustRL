@@ -332,6 +332,7 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
+        score += (*MAX_VEL * 2. + self.state.vy).value as i16;
         let mut finished = false;
         let prev_x = self.state.pos.x;
         self.state.update();
@@ -351,7 +352,7 @@ impl Game {
                 || self.state.vx.hypot(self.state.vy) > *MAX_VEL)
         {
             finished = true;
-            score -= ((self.state.vy - *MAX_VEL).value * 2.) as i16;
+            score -= ((self.state.vy.abs() - *MAX_VEL).value * 2.) as i16;
         } else if left_touching && right_touching {
             finished = true;
             score += 50;

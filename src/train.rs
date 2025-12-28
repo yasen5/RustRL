@@ -59,15 +59,6 @@ pub fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
                 .iter()
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .map(|v| *v).unwrap();
-            // if target_output.indexed_iter()
-            // .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-            // .map(|(i, v)| i)
-            // .unwrap() == 3 {
-            //     panic!("Target chose 3 like an idiot, output: {:?}", output);
-            // }
-            // if choice == 3 {
-            //     panic!("Agent chose 3 like an idiot, output: {:?}", output);
-            // }
             loss_derivative[choice] = output[choice] - reward as f32 + next_state_value_estimate;
             agent.backprop(&current_state, &mut loss_derivative);
             score += reward;
