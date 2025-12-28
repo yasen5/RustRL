@@ -45,7 +45,7 @@ impl LinearLayer {
         Self {
             weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-1.0, 1.0).unwrap()),
             weight_gradient: Array2::zeros((outputs, inputs)),
-            biases: ndarray::Array1::random(outputs, Uniform::new(-1.0, 1.0).unwrap()),
+            biases: ndarray::Array1::random(outputs, Uniform::new(0., 1.0).unwrap()),
             bias_gradient: Array1::zeros(outputs),
             activation: ndarray::Array1::zeros(outputs),
             prev_derivative: ndarray::Array1::zeros(inputs),
@@ -62,19 +62,20 @@ impl LinearLayer {
     fn compute_gradient(&mut self, prev_activation: &Array1<f32>, next_derivative: &Array1<f32>) {
         self.prev_derivative = self
             .weights
-            .dot(&(prev_activation.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }) * next_derivative));
-        self.weight_gradient -= &next_derivative
+            .t()
+            .dot(&(self.activation.mapv(|x| if x >= 0.0 { 1.0 } else { 0.0 }) * next_derivative));
+        self.weight_gradient += &next_derivative
             .view()
             .insert_axis(ndarray::Axis(1))
             .dot(&prev_activation.view().insert_axis(ndarray::Axis(0)));
-        self.bias_gradient -= next_derivative;
+        self.bias_gradient += next_derivative;
     }
 
     fn apply_gradient(&mut self, learning_rate: f32) {
         self.weight_gradient *= learning_rate;
         self.bias_gradient *= learning_rate;
-        self.weights += &self.weight_gradient;
-        self.biases += &self.bias_gradient;
+        self.weights -= &self.weight_gradient;
+        self.biases -= &self.bias_gradient;
         self.zero_gradient();
     }
 
@@ -110,12 +111,6 @@ impl Model {
         }
     }
 
-    pub fn zero_gradients(&mut self) {
-        for layer in &mut self.layers {
-            layer.zero_gradient();
-        }
-    }
-
     pub fn add_layer(&mut self, input_size: usize, output_size: usize) -> () {
         self.action_space = output_size;
         self.layers.push(LinearLayer::new(input_size, output_size));
@@ -133,14 +128,14 @@ impl Model {
         &self.layers[self.layers.len() - 1].activation()
     }
 
-    pub fn backprop(&mut self, state: Array1<f32>, loss_derivative: &mut Array1<f32>) {
+    pub fn backprop(&mut self, state: &Array1<f32>, loss_derivative: &mut Array1<f32>) {
         *loss_derivative *= self.learning_rate;
         let (before_layers, last_layer) = self.layers.split_at_mut(self.num_layers - 1);
         last_layer[0].compute_gradient(
             before_layers[before_layers.len() - 1].activation(),
             loss_derivative,
         );
-        for i in (1..self.layers.len() - 2).rev() {
+        for i in (1..self.layers.len() - 1).rev() {
             let (before_layers, after_layers) = self.layers.split_at_mut(i);
             let (curr_layer, after_layers) = after_layers.split_at_mut(1);
             curr_layer[0].compute_gradient(
@@ -150,5 +145,11 @@ impl Model {
         }
         let (first_layer, other_layers) = self.layers.split_at_mut(1);
         first_layer[0].compute_gradient(&state, other_layers[0].prev_derivative());
+    }
+
+    pub fn apply_gradients(&mut self) {
+        for layer in &mut self.layers {
+            layer.apply_gradient(self.learning_rate);
+        }
     }
 }
