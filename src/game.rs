@@ -323,15 +323,12 @@ impl Game {
 impl Game {
     #[allow(non_snake_case)]
     pub fn step(&mut self, choice: usize) -> (i16, bool) {
-        let mut score: i16 = -20;
-        if choice == 2 {
-            score += 25;
-        }
+        let mut score: i16 = -1;
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
             2 => Ok(self.state.fire_engine(Engine::DOWN)),
-            3 => Ok(()),
+            3 => Ok(score += 1), // saving fuel
             _ => Err(()),
         }
         .unwrap();
@@ -354,7 +351,7 @@ impl Game {
                 || self.state.vx.hypot(self.state.vy) > *MAX_VEL)
         {
             finished = true;
-            score -= 50;
+            score -= ((self.state.vy - *MAX_VEL).value * 2.) as i16;
         } else if left_touching && right_touching {
             finished = true;
             score += 50;

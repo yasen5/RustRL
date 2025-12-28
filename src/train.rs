@@ -1,6 +1,6 @@
 use ndarray::Array1;
 use ndarray_rand::RandomExt;
-use rand::distr::Uniform;
+use rand::{Rng, distr::Uniform};
 
 const SESSIONS: u16 = 500;
 const ITER_DISPLAY_PRECISION: u16 = 20;
@@ -34,19 +34,23 @@ pub fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
     let mut state: Array1<f32> = Array1::zeros(5);
     let mut loss_derivative;
     let mut actions: [u16; 4] = [0; 4];
+    let mut epsilon: f32 = 1.;
+    let mut rng = rand::rng();
     for iter in 0..SESSIONS {
+        epsilon /= 2.;
         game.reset();
         let mut score: i16 = 0;
         loop {
             loss_derivative = Array1::zeros(4);
             game.state().to_vec(&mut state);
             let current_state = state.clone();
-            let output = agent.forward(&state);
-            let (choice, reward_prediction): (usize, f32) = output
+            let output = agent.forward(&state).clone();
+            let choice: usize = if rng.random::<f32>() > epsilon { output
                 .indexed_iter()
                 .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-                .map(|(i, v)| (i, *v))
-                .unwrap();
+                .map(|(i, _)| i)
+                .unwrap() } else { rng.gen_range(0..4) };
+
             actions[choice] += 1;
             let (reward, finished) = game.step(choice);
             game.state().to_vec(&mut state);
@@ -55,22 +59,22 @@ pub fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
                 .iter()
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .map(|v| *v).unwrap();
-            if target_output.indexed_iter()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-            .map(|(i, v)| i)
-            .unwrap() == 3 {
-                panic!("Target chose 3 like an idiot, output: {:?}", output);
-            }
-            if choice == 3 {
-                panic!("Agent chose 3 like an idiot, output: {:?}", output);
-            }
-            loss_derivative[choice] = reward_prediction - reward as f32 + next_state_value_estimate;
+            // if target_output.indexed_iter()
+            // .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            // .map(|(i, v)| i)
+            // .unwrap() == 3 {
+            //     panic!("Target chose 3 like an idiot, output: {:?}", output);
+            // }
+            // if choice == 3 {
+            //     panic!("Agent chose 3 like an idiot, output: {:?}", output);
+            // }
+            loss_derivative[choice] = output[choice] - reward as f32 + next_state_value_estimate;
             agent.backprop(&current_state, &mut loss_derivative);
             score += reward;
             if finished {
                 agent.apply_gradients();
                 display_progress(iter);
-                println!("Score: {}\t Action Count: {:?}", score, actions);
+                println!("Score: {}\t Action Count: {:?}\tOutput: {:?}", score, actions, output);
                 break;
             }
         }
