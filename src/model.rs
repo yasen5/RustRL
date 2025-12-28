@@ -43,7 +43,7 @@ pub struct LinearLayer {
 impl LinearLayer {
     pub fn new(inputs: usize, outputs: usize) -> Self {
         Self {
-            weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-1.0, 1.0).unwrap()),
+            weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-1.0, 1.0).unwrap()) / 50.,
             weight_gradient: Array2::zeros((outputs, inputs)),
             biases: ndarray::Array1::random(outputs, Uniform::new(0., 1.0).unwrap()),
             bias_gradient: Array1::zeros(outputs),
@@ -107,7 +107,7 @@ impl Model {
             layers: vec![],
             num_layers: 0,
             action_space: action_space,
-            learning_rate: 0.001,
+            learning_rate: 0.005,
         }
     }
 

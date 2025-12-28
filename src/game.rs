@@ -323,7 +323,10 @@ impl Game {
 impl Game {
     #[allow(non_snake_case)]
     pub fn step(&mut self, choice: usize) -> (i16, bool) {
-        // TODO move constants
+        let mut score: i16 = -20;
+        if choice == 2 {
+            score += 25;
+        }
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
@@ -332,7 +335,6 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        let mut score: i16 = -1;
         let mut finished = false;
         let prev_x = self.state.pos.x;
         self.state.update();
@@ -357,10 +359,12 @@ impl Game {
             finished = true;
             score += 50;
         }
-        (score, finished)
+        self.steps += 1;
+        return (score, finished);
     }
 
     pub fn reset(&mut self) {
+        self.steps = 0;
         self.state = Rocket::new(false, false, 0., 0.);
     }
 
