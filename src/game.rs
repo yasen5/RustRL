@@ -112,7 +112,7 @@ impl Rocket {
         let mass = Mass::new::<kilogram>(50.);
         let width = *ENV_BOX_WIDTH / 10.0;
         let height = *ENV_BOX_HEIGHT / 20.0;
-        let engine_strength = Force::new::<newton>(490.5);
+        let engine_strength = Force::new::<newton>(450.5);
         let engine_accel = engine_strength / mass;
         let horizontal_moi: MomentOfInertia = mass * height * height / 12.;
         let side_engine_torque: Torque = (engine_strength * height / 2.0).into();
@@ -384,19 +384,12 @@ impl Game {
     }
 }
 
-pub async fn run_game() {
+pub async fn run_game(mut choose: impl FnMut() -> usize) {
     let mut new_game = Game::new();
     let mut score = 0;
 
     loop {
-        let mut choice: usize = 3;
-        if is_key_down(KeyCode::A) {
-            choice = 1;
-        } else if is_key_down(KeyCode::D) {
-            choice = 0;
-        } else if is_key_down(KeyCode::W) {
-            choice = 2;
-        }
+        let choice: usize = choose();
 
         new_game.draw();
         thread::sleep(Duration::from_millis(DT.get::<millisecond>() as u64));

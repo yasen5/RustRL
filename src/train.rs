@@ -2,7 +2,9 @@ use ndarray::Array1;
 use ndarray_rand::RandomExt;
 use rand::{Rng, distr::Uniform};
 
-const SESSIONS: u16 = 500;
+use crate::game;
+
+const SESSIONS: u16 = 30;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 
@@ -29,7 +31,7 @@ pub fn fake_train(agent: &mut crate::model::Model) {
     }
 }
 
-pub fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
+pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
     let mut target: crate::model::Model = agent.clone();
     let mut state: Array1<f32> = Array1::zeros(5);
     let mut loss_derivative;
@@ -45,11 +47,15 @@ pub fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
             game.state().to_vec(&mut state);
             let current_state = state.clone();
             let output = agent.forward(&state).clone();
-            let choice: usize = if rng.random::<f32>() > epsilon { output
-                .indexed_iter()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-                .map(|(i, _)| i)
-                .unwrap() } else { rng.gen_range(0..4) };
+            let choice: usize = if rng.random::<f32>() > epsilon {
+                output
+                    .indexed_iter()
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                    .map(|(i, _)| i)
+                    .unwrap()
+            } else {
+                rng.gen_range(0..4)
+            };
 
             actions[choice] += 1;
             let (reward, finished) = game.step(choice);
@@ -58,22 +64,36 @@ pub fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
             let next_state_value_estimate: f32 = target_output
                 .iter()
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
-                .map(|v| *v).unwrap();
+                .map(|v| *v)
+                .unwrap();
             loss_derivative[choice] = output[choice] - reward as f32 + next_state_value_estimate;
             agent.backprop(&current_state, &mut loss_derivative);
             score += reward;
             if finished {
                 agent.apply_gradients();
                 display_progress(iter);
-                println!("Score: {}\t Action Count: {:?}\tOutput: {:?}", score, actions, output);
+                println!(
+                    "Score: {}\t Action Count: {:?}\tOutput: {:?}",
+                    score, actions, output
+                );
                 break;
             }
         }
     }
+    game.reset();
+    game::run_game(|| {
+        game.state().to_vec(&mut state);
+        agent
+            .forward(&state)
+            .indexed_iter()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .map(|(i, _)| i)
+            .unwrap()
+    }).await;
 }
 
 fn display_progress(iter: u16) {
-    if iter % LOG_INTERVAL != 0 {
+    if LOG_INTERVAL == 0 || iter % LOG_INTERVAL != 0 {
         return;
     }
     let hashtags: u16 = iter / LOG_INTERVAL;
