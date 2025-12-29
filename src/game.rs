@@ -9,7 +9,7 @@ use macroquad::shapes::{
     draw_rectangle,
 };
 use macroquad::{
-    input::{KeyCode, is_key_down, is_key_pressed},
+    input::{KeyCode, is_key_pressed},
     text::draw_text,
     window::{clear_background, next_frame},
 };

@@ -4,7 +4,7 @@ use rand::{Rng, distr::Uniform};
 
 use crate::game;
 
-const SESSIONS: u16 = 30;
+const SESSIONS: u16 = 40;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 

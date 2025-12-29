@@ -2,34 +2,6 @@ use ndarray::{Array1, Array2};
 use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::Uniform;
 
-pub struct SoftmaxLayer {
-    activation: Array1<f32>,
-}
-
-impl SoftmaxLayer {
-    pub fn new(inputs: usize) -> Self {
-        Self {
-            activation: Array1::zeros(inputs),
-        }
-    }
-}
-
-impl SoftmaxLayer {
-    fn forward(&mut self, prev_activation: &Array1<f32>) {
-        let mut exp_sum: f32 = 0.;
-        for num in prev_activation {
-            exp_sum += num.exp();
-        }
-        for i in 0..prev_activation.len() {
-            self.activation[i] = prev_activation[i].exp() / exp_sum;
-        }
-    }
-
-    fn activation(&self) -> &Array1<f32> {
-        &self.activation
-    }
-}
-
 #[derive(Clone)]
 pub struct LinearLayer {
     weights: Array2<f32>,
