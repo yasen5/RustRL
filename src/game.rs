@@ -112,7 +112,7 @@ impl Rocket {
         let mass = Mass::new::<kilogram>(50.);
         let width = *ENV_BOX_WIDTH / 10.0;
         let height = *ENV_BOX_HEIGHT / 20.0;
-        let engine_strength = Force::new::<newton>(1000.);
+        let engine_strength = Force::new::<newton>(490.5);
         let engine_accel = engine_strength / mass;
         let horizontal_moi: MomentOfInertia = mass * height * height / 12.;
         let side_engine_torque: Torque = (engine_strength * height / 2.0).into();
@@ -332,7 +332,7 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        score += (*MAX_VEL * 2. + self.state.vy).value as i16;
+        score += ((*MAX_VEL * 2. - self.state.vy.abs()).value / 3.) as i16;
         let mut finished = false;
         let prev_x = self.state.pos.x;
         self.state.update();
