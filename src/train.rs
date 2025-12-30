@@ -8,7 +8,7 @@ const SESSIONS: u16 = 100;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 const GAMMA: f32 = 0.99;
-const LEARNING_RATE: f32 = 0.001;
+const LEARNING_RATE: f32 = 0.01;
 const OBSERVATION_SPACE: usize = 4;
 const ACTION_SPACE: usize = 4;
 const BATCH_SIZE: u16 = 32;
@@ -54,12 +54,13 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
     let mut target: crate::model::Model = agent.clone();
     let mut state: Array1<f32> = Array1::zeros(OBSERVATION_SPACE);
     let mut loss_derivative;
-    let mut actions: [u16; ACTION_SPACE] = [0; ACTION_SPACE];
     let mut epsilon: f32 = 1.;
     let mut rng = rand::rng();
     let mut residual = 0;
     for iter in 0..SESSIONS {
         epsilon *= EPSILON_DECAY;
+        let mut rewards: [f32; ACTION_SPACE] = [0.; ACTION_SPACE];
+        let mut actions: [u16; ACTION_SPACE] = [0; ACTION_SPACE];
         let mut score: i16 = 0;
         loop {
             loss_derivative = Array1::zeros(ACTION_SPACE);
@@ -77,8 +78,9 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
             };
             actions[choice] += 1;
             let (reward, finished) = game.step(choice, false);
+            rewards[choice] = reward as f32;
             game.state().to_vec(&mut state);
-            if finished {
+            if true {
                 loss_derivative[choice] = output[choice] - reward as f32;
             } else {
                 let target_output = target.forward(&state);
@@ -98,9 +100,12 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
             if finished {
                 residual = game.steps % BATCH_SIZE;
                 display_progress(iter);
+                for i in 0..OBSERVATION_SPACE {
+                    rewards[i] = if actions[i] == 0 { 0. } else { rewards[i] / actions[i] as f32 };
+                }
                 println!(
-                    "Score: {}\t Action Count: {:?}\tOutput: {:?}",
-                    score, actions, output
+                    "Score: {}\tAction Count: {:?}\tRewards: {:?}\tOutput: {:?}",
+                    score, actions, rewards, output
                 );
                 if iter % 4 == 0 {
                     target = agent.clone();

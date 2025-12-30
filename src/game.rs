@@ -32,7 +32,7 @@ lazy_static! {
         Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
     static ref PARTICLE_RADIUS: Length = *ENV_BOX_HEIGHT / 100.;
     static ref PARTICLE_LIFTIME: Time = Time::new::<second>(1.);
-    static ref MAX_STEPS: u16 = 15;
+    static ref MAX_STEPS: u16 = 50;
     static ref MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
     static ref MAX_ANGULAR_VEL: AngularVelocity =
         AngularVelocity::new::<radian_per_second>(PI / 4.);
@@ -335,16 +335,16 @@ impl Game {
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
             2 => Ok(self.state.fire_engine(Engine::DOWN)),
             3 => Ok(()), // saving fuel,
-            4 => {
-                self.state.fire_engine(Engine::RIGHT);
-                self.state.fire_engine(Engine::DOWN);
-                Ok(())
-            }
-            5 => {
-                self.state.fire_engine(Engine::LEFT);
-                self.state.fire_engine(Engine::DOWN);
-                Ok(())
-            }
+            // 4 => {
+            //     self.state.fire_engine(Engine::RIGHT);
+            //     self.state.fire_engine(Engine::DOWN);
+            //     Ok(())
+            // }
+            // 5 => {
+            //     self.state.fire_engine(Engine::LEFT);
+            //     self.state.fire_engine(Engine::DOWN);
+            //     Ok(())
+            // }
             _ => Err(()),
         }
         .unwrap();
@@ -356,19 +356,18 @@ impl Game {
             // score -= 5;
             finished = true;
         }
-        let left_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
-        let right_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
-        if (left_touching || right_touching)
-            && (self.state.angular_velocity > *MAX_ANGULAR_VEL
-                || self.state.vx.hypot(self.state.vy) > *MAX_VEL)
-        {
-            finished = true;
-            score -= ((self.state.vy.abs() - *MAX_VEL).value * 5.) as i16;
-        } else if left_touching && right_touching {
-            finished = true;
-            score += 50;
-        }
-        score = score.clamp(-50, 50);
+        // let left_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
+        // let right_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
+        // if (left_touching || right_touching)
+        //     && (self.state.angular_velocity > *MAX_ANGULAR_VEL
+        //         || self.state.vx.hypot(self.state.vy) > *MAX_VEL)
+        // {
+        //     finished = true;
+        //     score -= ((self.state.vy.abs() - *MAX_VEL).value * 5.) as i16;
+        // } else if left_touching && right_touching {
+        //     finished = true;
+        //     score += 50;
+        // }
         return (score, finished);
     }
 
