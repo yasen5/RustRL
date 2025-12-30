@@ -345,7 +345,7 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        let distance_punishment = ((*MAX_VEL * 2. - self.state.vy.abs()).value / 3.) as i16;
+        let distance_punishment = ((*MAX_VEL * 2. - self.state.vy.abs()).value / 10.) as i16;
         score -= distance_punishment;
         let mut finished = false;
         self.state.update();
@@ -361,7 +361,7 @@ impl Game {
                 || self.state.vx.hypot(self.state.vy) > *MAX_VEL)
         {
             finished = true;
-            score -= ((self.state.vy.abs() - *MAX_VEL).value * 2.) as i16;
+            score -= ((self.state.vy.abs() - *MAX_VEL).value * 5.) as i16;
         } else if left_touching && right_touching {
             finished = true;
             score += 50;

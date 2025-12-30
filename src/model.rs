@@ -17,7 +17,7 @@ impl LinearLayer {
     pub fn new(inputs: usize, outputs: usize, relu: bool) -> Self {
         Self {
             weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-0.5, 1.0).unwrap())
-                / 50.,
+                / 100.,
             weight_gradient: Array2::zeros((outputs, inputs)),
             biases: ndarray::Array1::random(outputs, Uniform::new(0., 1.0).unwrap()),
             bias_gradient: Array1::zeros(outputs),
@@ -37,13 +37,18 @@ impl LinearLayer {
     }
 
     fn compute_gradient(&mut self, prev_activation: &Array1<f32>, next_derivative: &Array1<f32>) {
-        self.prev_derivative = if self.relu {
-            self.weights.t().dot(
-                &(self.activation.mapv(|x| if x >= 0.0 { 1.0 } else { 0.0 }) * next_derivative),
-            )
-        } else {
-            self.weights.t().dot(next_derivative)
-        };
+        let relu_derivative: Array1<f32>;
+        if self.relu {
+            relu_derivative =
+                self.activation.mapv(|x| if x >= 0.0 { 1.0 } else { 0.0 }) * next_derivative;
+            self.prev_derivative = relu_derivative.dot(&self.weights);
+            self.weight_gradient += &relu_derivative
+                .view()
+                .insert_axis(ndarray::Axis(1))
+                .dot(&prev_activation.view().insert_axis(ndarray::Axis(0)));
+            self.bias_gradient += &relu_derivative;
+        }
+        self.prev_derivative = next_derivative.dot(&self.weights);
         self.weight_gradient += &next_derivative
             .view()
             .insert_axis(ndarray::Axis(1))
@@ -90,7 +95,8 @@ impl Model {
     }
 
     pub fn add_layer(&mut self, input_size: usize, output_size: usize, relu: bool) -> () {
-        self.layers.push(LinearLayer::new(input_size, output_size, relu));
+        self.layers
+            .push(LinearLayer::new(input_size, output_size, relu));
         self.num_layers += 1;
     }
 
@@ -106,7 +112,6 @@ impl Model {
     }
 
     pub fn backprop(&mut self, state: &Array1<f32>, loss_derivative: &mut Array1<f32>) {
-        *loss_derivative *= self.learning_rate;
         let (before_layers, last_layer) = self.layers.split_at_mut(self.num_layers - 1);
         last_layer[0].compute_gradient(
             before_layers[before_layers.len() - 1].activation(),

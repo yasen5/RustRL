@@ -7,6 +7,7 @@ use crate::game;
 const SESSIONS: u16 = 120;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
+const GAMMA: f32 = 0.99;
 
 pub fn fake_train(agent: &mut crate::model::Model) {
     let state: Array1<f32> = Array1::random(5, Uniform::new(-1.0, 1.0).unwrap());
@@ -69,7 +70,7 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
                     .map(|v| *v)
                     .unwrap();
                 loss_derivative[choice] =
-                    output[choice] - (reward as f32 + next_state_value_estimate);
+                    output[choice] - (reward as f32 + GAMMA * next_state_value_estimate);
             }
             agent.backprop(&acted_upon_state, &mut loss_derivative);
             score += reward;
