@@ -4,33 +4,11 @@ use rand::{Rng, distr::Uniform};
 
 use crate::game;
 
-const SESSIONS: u16 = 100;
+const SESSIONS: u16 = 200;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 const GAMMA: f32 = 0.99;
-
-pub fn fake_train(agent: &mut crate::model::Model) {
-    let state: Array1<f32> = Array1::random(5, Uniform::new(-1.0, 1.0).unwrap());
-    let mut loss_derivative;
-    for iter in 0..SESSIONS {
-        for i in 0..100 {
-            loss_derivative = Array1::zeros(6);
-            let (choice, reward_prediction): (usize, f32) = agent
-                .forward(&state)
-                .indexed_iter()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-                .map(|(i, v)| (i, *v))
-                .unwrap();
-            loss_derivative[choice] = reward_prediction - 5.;
-            agent.backprop(&state, &mut loss_derivative);
-            if i == 99 {
-                println!("Reward prediction: {}", reward_prediction);
-            }
-        }
-        agent.apply_gradients();
-        display_progress(iter);
-    }
-}
+const LEARNING_RATE: f32 = 0.0005;
 
 pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
     let mut acted_upon_state: Array1<f32>;
@@ -41,7 +19,7 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
     let mut epsilon: f32 = 1.;
     let mut rng = rand::rng();
     for iter in 0..SESSIONS {
-        epsilon *= 3. / 4.;
+        epsilon *= 9. / 10.;
         let mut score: i16 = 0;
         loop {
             loss_derivative = Array1::zeros(6);
@@ -71,17 +49,12 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
                     .unwrap();
                 loss_derivative[choice] =
                     output[choice] - (reward as f32 + GAMMA * next_state_value_estimate);
-                // println!("Loss derivative: {}", loss_derivative[choice]);
-                if loss_derivative[choice].abs() > 30. {
-                    println!("Output: {:?}\tTarget Output: {:?}", output, target_output);
-                }
             }
             agent.backprop(&acted_upon_state, &mut loss_derivative);
             score += reward;
-            agent.apply_gradients();
             if finished {
-                agent.apply_gradients();
                 display_progress(iter);
+                agent.apply_gradients(LEARNING_RATE, game.steps);
                 println!(
                     "Score: {}\t Action Count: {:?}\tOutput: {:?}",
                     score, actions, output

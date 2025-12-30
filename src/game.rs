@@ -326,12 +326,13 @@ impl Game {
 impl Game {
     #[allow(non_snake_case)]
     pub fn step(&mut self, choice: usize, verbose: bool) -> (i16, bool) {
+        self.steps += 1;
         let mut score: i16 = -1;
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
             2 => Ok(self.state.fire_engine(Engine::DOWN)),
-            3 => Ok(score -= 10), // saving fuel,
+            3 => Ok(()), // saving fuel,
             4 => {
                 self.state.fire_engine(Engine::RIGHT);
                 self.state.fire_engine(Engine::DOWN);
@@ -348,7 +349,7 @@ impl Game {
         score += ((*MAX_VEL * 2. - self.state.vy.abs()).value) as i16;
         let mut finished = false;
         self.state.update();
-        score -= ((self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 4.) as i16;
+        score -= ((self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 1.) as i16;
         if self.steps > *MAX_STEPS {
             score -= 5;
             finished = true;
@@ -365,7 +366,7 @@ impl Game {
             finished = true;
             score += 50;
         }
-        self.steps += 1;
+        score = score.clamp(-50, 50);
         return (score, finished);
     }
 
@@ -406,6 +407,7 @@ pub async fn run_game(mut choose: impl FnMut() -> usize, verbose: bool) {
         let (reward, finished) = new_game.step(choice, verbose);
         score += reward;
 
+        println!("Reward: {}", reward);
         if finished {
             break;
         }

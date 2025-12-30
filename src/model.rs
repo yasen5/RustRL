@@ -16,10 +16,9 @@ pub struct LinearLayer {
 impl LinearLayer {
     pub fn new(inputs: usize, outputs: usize, relu: bool) -> Self {
         Self {
-            weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-0.5, 1.0).unwrap())
-                / 100.,
+            weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-1.0, 1.0).unwrap()),
             weight_gradient: Array2::zeros((outputs, inputs)),
-            biases: ndarray::Array1::random(outputs, Uniform::new(0., 1.0).unwrap()),
+            biases: ndarray::Array1::zeros(outputs),
             bias_gradient: Array1::zeros(outputs),
             activation: ndarray::Array1::zeros(outputs),
             prev_derivative: ndarray::Array1::zeros(inputs),
@@ -41,14 +40,14 @@ impl LinearLayer {
         if self.relu {
             relu_derivative =
                 self.activation.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }) * next_derivative;
-            self.prev_derivative = relu_derivative.dot(&self.weights);
+            self.prev_derivative = self.weights.t().dot(&relu_derivative);
             self.weight_gradient += &relu_derivative
                 .view()
                 .insert_axis(ndarray::Axis(1))
                 .dot(&prev_activation.view().insert_axis(ndarray::Axis(0)));
             self.bias_gradient += &relu_derivative;
         } else {
-            self.prev_derivative = next_derivative.dot(&self.weights);
+            self.prev_derivative = self.weights.t().dot(next_derivative);
             self.weight_gradient += &next_derivative
                 .view()
                 .insert_axis(ndarray::Axis(1))
@@ -83,7 +82,6 @@ impl LinearLayer {
 pub struct Model {
     layers: Vec<LinearLayer>,
     num_layers: usize,
-    learning_rate: f32,
 }
 
 impl Model {
@@ -91,7 +89,6 @@ impl Model {
         Self {
             layers: vec![],
             num_layers: 0,
-            learning_rate: 0.001,
         }
     }
 
@@ -130,9 +127,9 @@ impl Model {
         first_layer[0].compute_gradient(&state, other_layers[0].prev_derivative());
     }
 
-    pub fn apply_gradients(&mut self) {
+    pub fn apply_gradients(&mut self, learning_rate: f32, batch_size: u16) {
         for layer in &mut self.layers {
-            layer.apply_gradient(self.learning_rate);
+            layer.apply_gradient(learning_rate / batch_size as f32);
         }
     }
 }

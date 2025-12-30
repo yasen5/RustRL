@@ -13,7 +13,8 @@ async fn main() {
         game::run_game(choose, false).await;
     } else {
         let mut agent: model::Model = model::Model::new();
-        agent.add_layer(5, 256, true);
+        agent.add_layer(5, 512, true);
+        agent.add_layer(512, 256, true);
         agent.add_layer(256, 64, true);
         agent.add_layer(64, 6, false);
         train::train(&mut new_game, &mut agent).await;
