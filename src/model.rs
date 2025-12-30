@@ -1,6 +1,6 @@
 use ndarray::{Array1, Array2};
 use ndarray_rand::RandomExt;
-use ndarray_rand::rand_distr::Uniform;
+use ndarray_rand::rand_distr::Normal;
 
 #[derive(Clone)]
 pub struct LinearLayer {
@@ -15,13 +15,18 @@ pub struct LinearLayer {
 
 impl LinearLayer {
     pub fn new(inputs: usize, outputs: usize, relu: bool) -> Self {
+        let avg_io_size: f32 = (inputs + outputs) as f32 / 2.0;
+        let scaling: f32 = if relu { 2.0 } else { 1.0 };
         Self {
-            weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-1.0, 1.0).unwrap()),
+            weights: Array2::random(
+                (outputs, inputs),
+                Normal::new(0., scaling / avg_io_size).unwrap(),
+            ),
             weight_gradient: Array2::zeros((outputs, inputs)),
-            biases: ndarray::Array1::zeros(outputs),
+            biases: Array1::zeros(outputs),
             bias_gradient: Array1::zeros(outputs),
-            activation: ndarray::Array1::zeros(outputs),
-            prev_derivative: ndarray::Array1::zeros(inputs),
+            activation: Array1::zeros(outputs),
+            prev_derivative: Array1::zeros(inputs),
             relu: relu,
         }
     }

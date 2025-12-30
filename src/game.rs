@@ -32,7 +32,7 @@ lazy_static! {
         Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
     static ref PARTICLE_RADIUS: Length = *ENV_BOX_HEIGHT / 100.;
     static ref PARTICLE_LIFTIME: Time = Time::new::<second>(1.);
-    static ref MAX_STEPS: u16 = 100;
+    static ref MAX_STEPS: u16 = 15;
     static ref MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
     static ref MAX_ANGULAR_VEL: AngularVelocity =
         AngularVelocity::new::<radian_per_second>(PI / 4.);
@@ -154,9 +154,9 @@ impl Rocket {
         output[1] = self.pos.y.value / ENV_BOX_HEIGHT.value;
         output[2] = self.vx.value / GRAVITY.value;
         output[3] = self.vy.value / GRAVITY.value;
-        output[4] = self.angular_velocity.value;
-        output[5] = self.tilt.cos().value;
-        output[6] = self.tilt.sin().value;
+        // output[4] = self.angular_velocity.value;
+        // output[5] = self.tilt.cos().value;
+        // output[6] = self.tilt.sin().value;
     }
 
     fn leg_pos(&self, left: bool, start: bool) -> Pos {
@@ -211,7 +211,7 @@ impl Rocket {
             Engine::RIGHT => {
                 self.vx -= self.translational_engine_accel * (*DT) * self.tilt.cos();
                 self.vy -= self.translational_engine_accel * (*DT) * self.tilt.sin();
-                self.angular_velocity += AngularVelocity::from(self.angular_engine_accel * (*DT));
+                // self.angular_velocity += AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let right_engine_pos = self.engine_pos(Engine::RIGHT);
                 self.jet_particles[self.particle_index].activate(
                     self.pos.x + right_engine_pos.x,
@@ -222,7 +222,7 @@ impl Rocket {
             Engine::LEFT => {
                 self.vx += self.translational_engine_accel * (*DT) * self.tilt.cos();
                 self.vy += self.translational_engine_accel * (*DT) * self.tilt.sin();
-                self.angular_velocity -= AngularVelocity::from(self.angular_engine_accel * (*DT));
+                // self.angular_velocity -= AngularVelocity::from(self.angular_engine_accel * (*DT));
                 let left_engine_pos = self.engine_pos(Engine::LEFT);
                 self.jet_particles[self.particle_index].activate(
                     self.pos.x + left_engine_pos.x,
@@ -248,7 +248,7 @@ impl Rocket {
     }
 
     fn update(&mut self) {
-        self.vy -= (*GRAVITY) * (*DT);
+        // self.vy -= (*GRAVITY) * (*DT);
         self.pos.x += self.vx * (*DT);
         self.pos.y += self.vy * (*DT);
         self.tilt += Angle::from(self.angular_velocity * (*DT));
@@ -329,7 +329,7 @@ impl Game {
     #[allow(non_snake_case)]
     pub fn step(&mut self, choice: usize, verbose: bool) -> (i16, bool) {
         self.steps += 1;
-        let mut score: i16 = -1;
+        let mut score: i16 = 0;
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
@@ -348,12 +348,12 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        score += ((*MAX_VEL * 2. - self.state.vy.abs()).value) as i16;
+        // score += ((*MAX_VEL * 2. - self.state.vy.abs()).value) as i16;
         let mut finished = false;
         self.state.update();
         score -= ((self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 1.) as i16;
         if self.steps > *MAX_STEPS {
-            score -= 5;
+            // score -= 5;
             finished = true;
         }
         let left_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
