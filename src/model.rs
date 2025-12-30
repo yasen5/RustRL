@@ -10,32 +10,40 @@ pub struct LinearLayer {
     bias_gradient: Array1<f32>,
     activation: Array1<f32>,
     prev_derivative: Array1<f32>,
+    relu: bool,
 }
 
 impl LinearLayer {
-    pub fn new(inputs: usize, outputs: usize) -> Self {
+    pub fn new(inputs: usize, outputs: usize, relu: bool) -> Self {
         Self {
-            weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-1.0, 1.0).unwrap()) / 50.,
+            weights: ndarray::Array2::random((outputs, inputs), Uniform::new(-0.5, 1.0).unwrap())
+                / 50.,
             weight_gradient: Array2::zeros((outputs, inputs)),
             biases: ndarray::Array1::random(outputs, Uniform::new(0., 1.0).unwrap()),
             bias_gradient: Array1::zeros(outputs),
             activation: ndarray::Array1::zeros(outputs),
             prev_derivative: ndarray::Array1::zeros(inputs),
+            relu: relu,
         }
     }
 }
 
 impl LinearLayer {
     fn forward(&mut self, prev_activation: &Array1<f32>) {
-        self.activation =
-            (self.weights.dot(prev_activation) + &self.biases).mapv(|num: f32| f32::max(0., num));
+        self.activation = self.weights.dot(prev_activation) + &self.biases;
+        if self.relu {
+            self.activation.mapv_inplace(|x| x.max(0.));
+        }
     }
 
     fn compute_gradient(&mut self, prev_activation: &Array1<f32>, next_derivative: &Array1<f32>) {
-        self.prev_derivative = self
-            .weights
-            .t()
-            .dot(&(self.activation.mapv(|x| if x >= 0.0 { 1.0 } else { 0.0 }) * next_derivative));
+        self.prev_derivative = if self.relu {
+            self.weights.t().dot(
+                &(self.activation.mapv(|x| if x >= 0.0 { 1.0 } else { 0.0 }) * next_derivative),
+            )
+        } else {
+            self.weights.t().dot(next_derivative)
+        };
         self.weight_gradient += &next_derivative
             .view()
             .insert_axis(ndarray::Axis(1))
@@ -69,23 +77,20 @@ impl LinearLayer {
 pub struct Model {
     layers: Vec<LinearLayer>,
     num_layers: usize,
-    action_space: usize,
     learning_rate: f32,
 }
 
 impl Model {
-    pub fn new(action_space: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             layers: vec![],
             num_layers: 0,
-            action_space: action_space,
             learning_rate: 0.005,
         }
     }
 
-    pub fn add_layer(&mut self, input_size: usize, output_size: usize) -> () {
-        self.action_space = output_size;
-        self.layers.push(LinearLayer::new(input_size, output_size));
+    pub fn add_layer(&mut self, input_size: usize, output_size: usize, relu: bool) -> () {
+        self.layers.push(LinearLayer::new(input_size, output_size, relu));
         self.num_layers += 1;
     }
 

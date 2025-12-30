@@ -4,7 +4,7 @@ use rand::{Rng, distr::Uniform};
 
 use crate::game;
 
-const SESSIONS: u16 = 40;
+const SESSIONS: u16 = 160;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 
@@ -35,15 +35,15 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
     let mut target: crate::model::Model = agent.clone();
     let mut state: Array1<f32> = Array1::zeros(5);
     let mut loss_derivative;
-    let mut actions: [u16; 4] = [0; 4];
+    let mut actions: [u16; 6] = [0; 6];
     let mut epsilon: f32 = 1.;
     let mut rng = rand::rng();
     for iter in 0..SESSIONS {
-        epsilon /= 2.;
+        epsilon *= 3. / 4.;
         game.reset();
         let mut score: i16 = 0;
         loop {
-            loss_derivative = Array1::zeros(4);
+            loss_derivative = Array1::zeros(6);
             game.state().to_vec(&mut state);
             let current_state = state.clone();
             let output = agent.forward(&state).clone();
@@ -54,11 +54,10 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
                     .map(|(i, _)| i)
                     .unwrap()
             } else {
-                rng.gen_range(0..4)
+                rng.random_range(0..6)
             };
-
             actions[choice] += 1;
-            let (reward, finished) = game.step(choice);
+            let (reward, finished) = game.step(choice, false);
             game.state().to_vec(&mut state);
             let target_output = target.forward(&state);
             let next_state_value_estimate: f32 = target_output
@@ -89,7 +88,7 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
             .map(|(i, _)| i)
             .unwrap()
-    }).await;
+    }, true).await;
 }
 
 fn display_progress(iter: u16) {

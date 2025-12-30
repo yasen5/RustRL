@@ -1,13 +1,11 @@
 use std::f32::consts::PI;
 
+use crate::graphics;
 use crate::graphics::ENV_BOX_HEIGHT;
 use crate::graphics::ENV_BOX_WIDTH;
-use crate::graphics;
 use lazy_static::lazy_static;
 use macroquad::color::{BLACK, BLUE, Color, GRAY, PURPLE, WHITE};
-use macroquad::shapes::{
-    draw_rectangle,
-};
+use macroquad::shapes::draw_rectangle;
 use macroquad::{
     input::{KeyCode, is_key_pressed},
     text::draw_text,
@@ -107,31 +105,36 @@ pub struct Rocket {
     angular_engine_accel: AngularAcceleration,
 }
 
+const RAND_X: bool = false;
+const RAND_Y: bool = false;
+const START_XVEL: f32 = -5.;
+const START_YVEL: f32 = 0.;
+
 impl Rocket {
-    pub fn new(rand_x: bool, rand_y: bool, xvel: f32, yvel: f32) -> Self {
+    pub fn new() -> Self {
         let mass = Mass::new::<kilogram>(50.);
         let width = *ENV_BOX_WIDTH / 10.0;
         let height = *ENV_BOX_HEIGHT / 20.0;
         let engine_strength = Force::new::<newton>(450.5);
         let engine_accel = engine_strength / mass;
         let horizontal_moi: MomentOfInertia = mass * height * height / 12.;
-        let side_engine_torque: Torque = (engine_strength * height / 2.0).into();
+        let side_engine_torque: Torque = (engine_strength / 2. * height / 2.0).into(); // side engines weaker
         let side_accel: AngularAcceleration = (side_engine_torque / horizontal_moi / 30.).into();
         Self {
             pos: Pos {
-                x: if rand_x {
+                x: if RAND_X {
                     Length::new::<meter>(rand::random_range(0.0..ENV_BOX_WIDTH.value))
                 } else {
                     *ENV_BOX_WIDTH / 2.
                 },
-                y: if rand_y {
+                y: if RAND_Y {
                     Length::new::<meter>(rand::random_range(0.0..ENV_BOX_HEIGHT.value))
                 } else {
                     *ENV_BOX_HEIGHT / 2.
                 },
             },
-            vx: Velocity::new::<meter_per_second>(xvel),
-            vy: Velocity::new::<meter_per_second>(yvel),
+            vx: Velocity::new::<meter_per_second>(START_XVEL),
+            vy: Velocity::new::<meter_per_second>(START_YVEL),
             tilt: Angle::new::<radian>(0.),
             angular_velocity: AngularVelocity::new::<radian_per_second>(0.),
             width: width,
@@ -308,8 +311,8 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         Self {
-            state: Rocket::new(false, false, 0., 0.),
-            action_space: 4,
+            state: Rocket::new(),
+            action_space: 6,
             observation_space: 5,
             steps: 0,
         }
@@ -322,25 +325,34 @@ impl Game {
 // 3: no engines firing
 impl Game {
     #[allow(non_snake_case)]
-    pub fn step(&mut self, choice: usize) -> (i16, bool) {
+    pub fn step(&mut self, choice: usize, verbose: bool) -> (i16, bool) {
         let mut score: i16 = -1;
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
             2 => Ok(self.state.fire_engine(Engine::DOWN)),
-            3 => Ok(score += 1), // saving fuel
+            3 => Ok(score -= 10), // saving fuel,
+            4 => {
+                self.state.fire_engine(Engine::RIGHT);
+                self.state.fire_engine(Engine::DOWN);
+                Ok(())
+            }
+            5 => {
+                self.state.fire_engine(Engine::LEFT);
+                self.state.fire_engine(Engine::DOWN);
+                Ok(())
+            }
             _ => Err(()),
         }
         .unwrap();
-        score += ((*MAX_VEL * 2. - self.state.vy.abs()).value / 3.) as i16;
-        let mut finished = false;
-        let prev_x = self.state.pos.x;
-        self.state.update();
-        if (self.state.pos.x - *ENV_BOX_WIDTH / 2.0).value.abs()
-            < (prev_x - *ENV_BOX_WIDTH / 2.0).value.abs()
-        {
-            score += 1;
+        let distance_punishment = ((*MAX_VEL * 2. - self.state.vy.abs()).value / 3.) as i16;
+        if verbose && distance_punishment.abs() > 0 {
+            println!("Punished");
         }
+        score -= distance_punishment;
+        let mut finished = false;
+        self.state.update();
+        score -= ((self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 4.) as i16;
         if self.steps > *MAX_STEPS {
             score -= 5;
             finished = true;
@@ -363,7 +375,7 @@ impl Game {
 
     pub fn reset(&mut self) {
         self.steps = 0;
-        self.state = Rocket::new(false, false, 0., 0.);
+        self.state = Rocket::new();
     }
 
     pub fn draw(&self) {
@@ -384,7 +396,7 @@ impl Game {
     }
 }
 
-pub async fn run_game(mut choose: impl FnMut() -> usize) {
+pub async fn run_game(mut choose: impl FnMut() -> usize, verbose: bool) {
     let mut new_game = Game::new();
     let mut score = 0;
 
@@ -395,7 +407,7 @@ pub async fn run_game(mut choose: impl FnMut() -> usize) {
         thread::sleep(Duration::from_millis(DT.get::<millisecond>() as u64));
         next_frame().await;
 
-        let (reward, finished) = new_game.step(choice);
+        let (reward, finished) = new_game.step(choice, verbose);
         score += reward;
 
         if finished {

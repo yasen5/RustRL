@@ -4,27 +4,27 @@ use macroquad::{
     window::Conf,
 };
 
-const HUMAN_PLAYER: bool = false;
+const HUMAN_PLAYER: bool = true;
 
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut new_game: game::Game = game::Game::new();
     if HUMAN_PLAYER {
-        game::run_game(choose).await;
+        game::run_game(choose, false).await;
     } else {
-        let mut agent: model::Model = model::Model::new(4);
-        agent.add_layer(5, 256);
-        agent.add_layer(256, 64);
-        agent.add_layer(64, 4);
+        let mut agent: model::Model = model::Model::new();
+        agent.add_layer(5, 256, true);
+        agent.add_layer(256, 64, true);
+        agent.add_layer(64, 6, false);
         train::train(&mut new_game, &mut agent).await;
     }
 }
 
 fn choose() -> usize {
     if is_key_down(KeyCode::A) {
-        1
+        if is_key_down(KeyCode::W) { 5 } else { 1 }
     } else if is_key_down(KeyCode::D) {
-        0
+        if is_key_down(KeyCode::W) { 4 } else { 0 }
     } else if is_key_down(KeyCode::W) {
         2
     } else {
