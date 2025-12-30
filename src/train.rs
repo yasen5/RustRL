@@ -1,6 +1,5 @@
 use ndarray::Array1;
-use ndarray_rand::RandomExt;
-use rand::{Rng, distr::Uniform};
+use rand::{Rng};
 
 use crate::game;
 
@@ -8,12 +7,13 @@ const SESSIONS: u16 = 200;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 const GAMMA: f32 = 0.99;
-const LEARNING_RATE: f32 = 0.0005;
+const LEARNING_RATE: f32 = 0.00001;
+const OBSERVATION_SPACE: usize = 7;
 
 pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
     let mut acted_upon_state: Array1<f32>;
     let mut target: crate::model::Model = agent.clone();
-    let mut state: Array1<f32> = Array1::zeros(5);
+    let mut state: Array1<f32> = Array1::zeros(OBSERVATION_SPACE);
     let mut loss_derivative;
     let mut actions: [u16; 6] = [0; 6];
     let mut epsilon: f32 = 1.;

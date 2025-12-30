@@ -150,11 +150,13 @@ impl Rocket {
     }
 
     pub fn to_vec(&self, output: &mut Array1<f32>) {
-        output[0] = self.pos.x.value;
-        output[1] = self.pos.y.value;
-        output[2] = self.vx.value;
-        output[3] = self.vy.value;
+        output[0] = self.pos.x.value / ENV_BOX_WIDTH.value;
+        output[1] = self.pos.y.value / ENV_BOX_HEIGHT.value;
+        output[2] = self.vx.value / GRAVITY.value;
+        output[3] = self.vy.value / GRAVITY.value;
         output[4] = self.angular_velocity.value;
+        output[5] = self.tilt.cos().value;
+        output[6] = self.tilt.sin().value;
     }
 
     fn leg_pos(&self, left: bool, start: bool) -> Pos {
