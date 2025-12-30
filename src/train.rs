@@ -4,7 +4,7 @@ use rand::{Rng, distr::Uniform};
 
 use crate::game;
 
-const SESSIONS: u16 = 120;
+const SESSIONS: u16 = 100;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 const GAMMA: f32 = 0.99;
@@ -14,7 +14,7 @@ pub fn fake_train(agent: &mut crate::model::Model) {
     let mut loss_derivative;
     for iter in 0..SESSIONS {
         for i in 0..100 {
-            loss_derivative = Array1::zeros(5);
+            loss_derivative = Array1::zeros(6);
             let (choice, reward_prediction): (usize, f32) = agent
                 .forward(&state)
                 .indexed_iter()
@@ -71,9 +71,14 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
                     .unwrap();
                 loss_derivative[choice] =
                     output[choice] - (reward as f32 + GAMMA * next_state_value_estimate);
+                // println!("Loss derivative: {}", loss_derivative[choice]);
+                if loss_derivative[choice].abs() > 30. {
+                    println!("Output: {:?}\tTarget Output: {:?}", output, target_output);
+                }
             }
             agent.backprop(&acted_upon_state, &mut loss_derivative);
             score += reward;
+            agent.apply_gradients();
             if finished {
                 agent.apply_gradients();
                 display_progress(iter);

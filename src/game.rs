@@ -107,7 +107,7 @@ pub struct Rocket {
 
 const RAND_X: bool = false;
 const RAND_Y: bool = false;
-const START_XVEL: f32 = -5.;
+const START_XVEL: f32 = 5.;
 const START_YVEL: f32 = 0.;
 
 impl Rocket {
@@ -345,8 +345,7 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        let distance_punishment = ((*MAX_VEL * 2. - self.state.vy.abs()).value / 10.) as i16;
-        score -= distance_punishment;
+        score += ((*MAX_VEL * 2. - self.state.vy.abs()).value) as i16;
         let mut finished = false;
         self.state.update();
         score -= ((self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 4.) as i16;

@@ -47,13 +47,14 @@ impl LinearLayer {
                 .insert_axis(ndarray::Axis(1))
                 .dot(&prev_activation.view().insert_axis(ndarray::Axis(0)));
             self.bias_gradient += &relu_derivative;
+        } else {
+            self.prev_derivative = next_derivative.dot(&self.weights);
+            self.weight_gradient += &next_derivative
+                .view()
+                .insert_axis(ndarray::Axis(1))
+                .dot(&prev_activation.view().insert_axis(ndarray::Axis(0)));
+            self.bias_gradient += next_derivative;
         }
-        self.prev_derivative = next_derivative.dot(&self.weights);
-        self.weight_gradient += &next_derivative
-            .view()
-            .insert_axis(ndarray::Axis(1))
-            .dot(&prev_activation.view().insert_axis(ndarray::Axis(0)));
-        self.bias_gradient += next_derivative;
     }
 
     fn apply_gradient(&mut self, learning_rate: f32) {
