@@ -40,7 +40,7 @@ impl LinearLayer {
         let relu_derivative: Array1<f32>;
         if self.relu {
             relu_derivative =
-                self.activation.mapv(|x| if x >= 0.0 { 1.0 } else { 0.0 }) * next_derivative;
+                self.activation.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }) * next_derivative;
             self.prev_derivative = relu_derivative.dot(&self.weights);
             self.weight_gradient += &relu_derivative
                 .view()
