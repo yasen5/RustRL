@@ -85,7 +85,7 @@ impl Model {
         Self {
             layers: vec![],
             num_layers: 0,
-            learning_rate: 0.005,
+            learning_rate: 0.001,
         }
     }
 

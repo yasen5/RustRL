@@ -346,9 +346,6 @@ impl Game {
         }
         .unwrap();
         let distance_punishment = ((*MAX_VEL * 2. - self.state.vy.abs()).value / 3.) as i16;
-        if verbose && distance_punishment.abs() > 0 {
-            println!("Punished");
-        }
         score -= distance_punishment;
         let mut finished = false;
         self.state.update();

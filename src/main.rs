@@ -4,7 +4,7 @@ use macroquad::{
     window::Conf,
 };
 
-const HUMAN_PLAYER: bool = true;
+const HUMAN_PLAYER: bool = false;
 
 #[macroquad::main(window_conf)]
 async fn main() {
