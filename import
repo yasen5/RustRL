@@ -1,0 +1,9 @@
+Script started on Tue Dec 30 20:39:20 2025
+Command: /Users/yasen/.lldb/ndarray_printer.py
+Traceback (most recent call last):
+  File [35m"/Users/yasen/.lldb/ndarray_printer.py"[0m, line [35m3[0m, in [35m<module>[0m
+    import lldb
+[1;35mModuleNotFoundError[0m: [35mNo module named 'lldb'[0m
+
+Command exit status: 1
+Script done on Tue Dec 30 20:39:20 2025

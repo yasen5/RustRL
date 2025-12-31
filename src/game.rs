@@ -32,7 +32,7 @@ lazy_static! {
         Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
     static ref PARTICLE_RADIUS: Length = *ENV_BOX_HEIGHT / 100.;
     static ref PARTICLE_LIFTIME: Time = Time::new::<second>(1.);
-    static ref MAX_STEPS: u16 = 50;
+    static ref MAX_STEPS: u16 = 15;
     static ref MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
     static ref MAX_ANGULAR_VEL: AngularVelocity =
         AngularVelocity::new::<radian_per_second>(PI / 4.);
@@ -107,7 +107,7 @@ pub struct Rocket {
 
 const RAND_X: bool = false;
 const RAND_Y: bool = false;
-const START_XVEL: f32 = 5.;
+const START_XVEL: f32 = 0.;
 const START_YVEL: f32 = 0.;
 
 impl Rocket {
@@ -125,7 +125,7 @@ impl Rocket {
                 x: if RAND_X {
                     Length::new::<meter>(rand::random_range(0.0..ENV_BOX_WIDTH.value))
                 } else {
-                    *ENV_BOX_WIDTH / 2.
+                    *ENV_BOX_WIDTH * 3. / 4.
                 },
                 y: if RAND_Y {
                     Length::new::<meter>(rand::random_range(0.0..ENV_BOX_HEIGHT.value))
@@ -151,9 +151,9 @@ impl Rocket {
 
     pub fn to_vec(&self, output: &mut Array1<f32>) {
         output[0] = self.pos.x.value / ENV_BOX_WIDTH.value;
-        output[1] = self.pos.y.value / ENV_BOX_HEIGHT.value;
-        output[2] = self.vx.value / GRAVITY.value;
-        output[3] = self.vy.value / GRAVITY.value;
+        // output[1] = self.pos.y.value / ENV_BOX_HEIGHT.value;
+        output[1] = self.vx.value / GRAVITY.value; // REMEMBER TO CHANGE THIS BACK TO 2
+        // output[3] = self.vy.value / GRAVITY.value;
         // output[4] = self.angular_velocity.value;
         // output[5] = self.tilt.cos().value;
         // output[6] = self.tilt.sin().value;
@@ -352,7 +352,7 @@ impl Game {
         let mut finished = false;
         self.state.update();
         score -= ((self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 1.) as i16;
-        if self.steps > *MAX_STEPS {
+        if self.steps >= *MAX_STEPS {
             // score -= 5;
             finished = true;
         }

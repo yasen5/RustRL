@@ -4,7 +4,7 @@ use macroquad::{
     window::Conf,
 };
 
-const HUMAN_PLAYER: bool = false;
+const HUMAN_PLAYER: bool = true;
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -17,9 +17,9 @@ async fn main() {
         // agent.add_layer(512, 256, true);
         // agent.add_layer(256, 64, true);
         // agent.add_layer(64, 4, false);
-        agent.add_layer(4, 64, true);
-        agent.add_layer(64, 32, true);
-        agent.add_layer(32, 4, false);
+        agent.add_layer(2, 64, false);
+        agent.add_layer(64, 32, false);
+        agent.add_layer(32, 2, false);
         train::train(&mut new_game, &mut agent).await;
         // train::fake_train(&mut agent);
     }
