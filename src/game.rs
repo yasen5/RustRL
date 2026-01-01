@@ -321,7 +321,6 @@ impl Game {
         if self.steps >= *MAX_STEPS {
             finished = true;
         }
-        reward *= 2.;
         return (reward, finished);
     }
 

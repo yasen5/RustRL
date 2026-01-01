@@ -5,12 +5,12 @@ use ndarray::{Array1, Array2};
 use crate::{game, model};
 
 const LEARNING_RATE: f32 = 0.01;
-const ITERS: usize = 100000;
+const ITERS: usize = 5000;
 const TARGET_UPDATE_FREQ: usize = 100;
-const PRINT_FREQ: u16 = 100;
+const PRINT_FREQ: u16 = ITERS as u16 / 10;
 
 pub fn test_backprop() {
-    let BATCH_SIZE: u16 = *game::MAX_STEPS;
+    let BATCH_SIZE: u16 = *game::MAX_STEPS * 16;
     let mut game: game::Game = game::Game::new();
     let mut state: Array1<f32> = Array1::zeros(2);
     let mut state_clone;
@@ -38,10 +38,10 @@ pub fn test_backprop() {
             .map(|(i, _)| i)
             .unwrap();
         loss_derivative[agent_choice] =
-            agent_prediction[agent_choice] - (reward + target_prediction[target_choice]);
+            agent_prediction[agent_choice] - if finished {reward } else {reward + target_prediction[target_choice]};
         agent.backprop(&state_clone, &loss_derivative);
         actions[agent_choice] += 1;
-        if game.steps % BATCH_SIZE == 0 {
+        if (game.steps - 1) % BATCH_SIZE == 0 {
             if counter % PRINT_FREQ == 0 {
                 print!("Actions:{:?} Agent Output:\t", actions);
                 print_array(&agent_prediction);
@@ -61,6 +61,20 @@ pub fn test_backprop() {
             }
             agent.apply_gradients(LEARNING_RATE, 1);
             counter += 1;
+        }
+        if iter >= ITERS - 10 {
+            print!(
+                "Prediction: {}\tBellman: {}\tReward: {}",
+                agent_prediction[agent_choice],
+                if finished {reward } else {reward + target_prediction[target_choice]},
+                reward
+            );
+            if !finished {
+                println!("\tTarget Prediction: {}", target_prediction[target_choice]);
+            }
+            else {
+                println!();
+            }
         }
         if iter % TARGET_UPDATE_FREQ == 0 {
             target = agent.clone();

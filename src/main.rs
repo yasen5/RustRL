@@ -5,13 +5,12 @@ use macroquad::{
 };
 use rand::Rng;
 
-const HUMAN_PLAYER: bool = true;
+const HUMAN_PLAYER: bool = false;
 
-#[macroquad::main(window_conf)]
-async fn main() {
+fn main() {
     let mut new_game: game::Game = game::Game::new();
     if HUMAN_PLAYER {
-        game::run_game(choose, false).await;
+        // game::run_game(choose, false).await;
     } else {
         // let mut agent: model::Model = model::Model::new();
         // agent.add_layer(4, 512, true);
