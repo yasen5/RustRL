@@ -32,12 +32,12 @@ lazy_static! {
         Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
     static ref PARTICLE_RADIUS: Length = *ENV_BOX_HEIGHT / 100.;
     static ref PARTICLE_LIFTIME: Time = Time::new::<second>(1.);
-    static ref MAX_STEPS: u16 = 15;
+    pub static ref MAX_STEPS: u16 = 2;
     static ref MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
     static ref MAX_ANGULAR_VEL: AngularVelocity =
         AngularVelocity::new::<radian_per_second>(PI / 4.);
     static ref MAX_VEL: Velocity = Velocity::new::<meter_per_second>(5.);
-    static ref DT: Time = Time::new::<second>(0.1);
+    static ref DT: Time = Time::new::<second>(1.0);
     static ref GRAVITY: Acceleration = Acceleration::new::<meter_per_second_squared>(9.81);
 }
 
@@ -125,7 +125,7 @@ impl Rocket {
                 x: if RAND_X {
                     Length::new::<meter>(rand::random_range(0.0..ENV_BOX_WIDTH.value))
                 } else {
-                    *ENV_BOX_WIDTH * 3. / 4.
+                    *ENV_BOX_WIDTH
                 },
                 y: if RAND_Y {
                     Length::new::<meter>(rand::random_range(0.0..ENV_BOX_HEIGHT.value))
@@ -209,52 +209,19 @@ impl Rocket {
     fn fire_engine(&mut self, engine: Engine) {
         match engine {
             Engine::RIGHT => {
-                self.vx -= self.translational_engine_accel * (*DT) * self.tilt.cos();
-                self.vy -= self.translational_engine_accel * (*DT) * self.tilt.sin();
-                // self.angular_velocity += AngularVelocity::from(self.angular_engine_accel * (*DT));
-                let right_engine_pos = self.engine_pos(Engine::RIGHT);
-                self.jet_particles[self.particle_index].activate(
-                    self.pos.x + right_engine_pos.x,
-                    self.pos.y + right_engine_pos.y,
-                    self.tilt,
-                );
+                self.vx -= Velocity::new::<meter_per_second>(1.); 
             }
             Engine::LEFT => {
-                self.vx += self.translational_engine_accel * (*DT) * self.tilt.cos();
-                self.vy += self.translational_engine_accel * (*DT) * self.tilt.sin();
-                // self.angular_velocity -= AngularVelocity::from(self.angular_engine_accel * (*DT));
-                let left_engine_pos = self.engine_pos(Engine::LEFT);
-                self.jet_particles[self.particle_index].activate(
-                    self.pos.x + left_engine_pos.x,
-                    self.pos.y + left_engine_pos.y,
-                    self.tilt - Angle::HALF_TURN,
-                );
+                self.vx += Velocity::new::<meter_per_second>(1.); 
             }
             Engine::DOWN => {
-                self.vx -= self.translational_engine_accel * (*DT) * self.tilt.sin();
-                self.vy += self.translational_engine_accel * (*DT) * self.tilt.cos();
-                let down_engine_pos = self.engine_pos(Engine::DOWN);
-                self.jet_particles[self.particle_index].activate(
-                    self.pos.x + down_engine_pos.x,
-                    self.pos.y + down_engine_pos.y,
-                    self.tilt - Angle::new::<radian>(PI / 2.),
-                );
+                panic!("Shouldn't fire down");
             }
-        }
-        self.particle_index += 1;
-        if self.particle_index >= self.jet_particles.len() {
-            self.particle_index = 0;
         }
     }
 
     fn update(&mut self) {
-        // self.vy -= (*GRAVITY) * (*DT);
         self.pos.x += self.vx * (*DT);
-        self.pos.y += self.vy * (*DT);
-        self.tilt += Angle::from(self.angular_velocity * (*DT));
-        for particle in &mut self.jet_particles {
-            particle.update();
-        }
     }
 
     fn draw_engine(&self, engine: Engine) {
@@ -327,9 +294,9 @@ impl Game {
 // 3: no engines firing
 impl Game {
     #[allow(non_snake_case)]
-    pub fn step(&mut self, choice: usize, verbose: bool) -> (i16, bool) {
+    pub fn step(&mut self, choice: usize, verbose: bool) -> (f32, bool) {
         self.steps += 1;
-        let mut score: i16 = 0;
+        let mut reward: f32 = 0.;
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
@@ -348,27 +315,14 @@ impl Game {
             _ => Err(()),
         }
         .unwrap();
-        // score += ((*MAX_VEL * 2. - self.state.vy.abs()).value) as i16;
         let mut finished = false;
         self.state.update();
-        score -= ((self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 1.) as i16;
+        reward -= (self.state.pos.x - *ENV_BOX_WIDTH / 2.).abs().value / 1.;
         if self.steps >= *MAX_STEPS {
-            // score -= 5;
             finished = true;
         }
-        // let left_touching = self.state.leg_pos(true, false).y < *MIN_HEIGHT;
-        // let right_touching = self.state.leg_pos(false, false).y < *MIN_HEIGHT;
-        // if (left_touching || right_touching)
-        //     && (self.state.angular_velocity > *MAX_ANGULAR_VEL
-        //         || self.state.vx.hypot(self.state.vy) > *MAX_VEL)
-        // {
-        //     finished = true;
-        //     score -= ((self.state.vy.abs() - *MAX_VEL).value * 5.) as i16;
-        // } else if left_touching && right_touching {
-        //     finished = true;
-        //     score += 50;
-        // }
-        return (score, finished);
+        reward *= 2.;
+        return (reward, finished);
     }
 
     pub fn reset(&mut self) {
@@ -396,10 +350,13 @@ impl Game {
 
 pub async fn run_game(mut choose: impl FnMut() -> usize, verbose: bool) {
     let mut new_game = Game::new();
-    let mut score = 0;
-
+    let mut score: f32 = 0.;
+    new_game.draw();
+    thread::sleep(Duration::from_millis(DT.get::<millisecond>() as u64));
     loop {
         let choice: usize = choose();
+        println!("Chose: {}", choice);
+        // let choice = if new_game.steps <= 13 { 0 } else { 1 };
 
         new_game.draw();
         thread::sleep(Duration::from_millis(DT.get::<millisecond>() as u64));

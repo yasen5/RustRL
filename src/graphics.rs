@@ -5,8 +5,8 @@ use uom::si::{f32::{Angle, Length}, length::meter};
 use crate::game::Pos;
 
 lazy_static! {
-    pub static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(100.);
-    pub static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(100.);
+    pub static ref ENV_BOX_WIDTH: Length = Length::new::<meter>(3.);
+    pub static ref ENV_BOX_HEIGHT: Length = Length::new::<meter>(3.);
     pub static ref GRAPHICS_SCALAR: f32 = 800. / ENV_BOX_HEIGHT.value;
 }
 
