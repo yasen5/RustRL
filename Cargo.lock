@@ -1031,6 +1031,7 @@ dependencies = [
  "ndarray",
  "ndarray-rand",
  "rand",
+ "rand_distr",
  "strum",
  "strum_macros",
  "uom",

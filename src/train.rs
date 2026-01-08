@@ -1,148 +1,124 @@
+use std::vec;
+
 use ndarray::Array1;
-use ndarray_rand::RandomExt;
 use rand::{Rng, SeedableRng};
+use rand_distr::Distribution;
 
-use crate::game;
+use crate::{game, train};
 
-const SESSIONS: u16 = 2;
+const SESSIONS: u16 = 20;
 const ITER_DISPLAY_PRECISION: u16 = 20;
 const LOG_INTERVAL: u16 = SESSIONS / ITER_DISPLAY_PRECISION;
 const GAMMA: f32 = 0.99;
 const LEARNING_RATE: f32 = 0.001;
-const OBSERVATION_SPACE: usize = 2;
-const ACTION_SPACE: usize = 2;
-const BATCH_SIZE: u16 = 4;
+const BATCH_SIZE: usize = 4;
+const SAMPLING_FREQUENCY: usize = 5;
+const TARGET_UPDATE_FREQUENCY: usize = 3;
 const EPSILON_DECAY: f32 = 0.95;
 pub const SEED: u64 = 42;
 
+#[derive(Clone)]
+struct Experience {
+    state: Array1<f32>,
+    action: usize,
+    reward: f32,
+    next_state: Array1<f32>,
+}
 
-pub fn fake_train(agent: &mut crate::model::Model) {
-    let mut rng: rand::rngs::StdRng = rand::rngs::StdRng::seed_from_u64(SEED);
-    let state: Array1<f32> = Array1::random(
-        OBSERVATION_SPACE,
-        rand::distr::Uniform::new_inclusive(-1.0, 1.0).unwrap(),
-    );
-    let mut loss_derivative;
-    let mut actions: [u16; ACTION_SPACE] = [0; ACTION_SPACE];
-    let epsilon: f32 = 1.;
-    let mut steps: u16 = 0;
-    for iter in 0..SESSIONS {
-        steps += 1;
-        loss_derivative = Array1::zeros(ACTION_SPACE);
-        let agent_prediction = agent.forward(&state).clone();
-        let choice: usize = if rng.random::<f32>() > epsilon {
-            agent_prediction
-                .indexed_iter()
-                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-                .map(|(i, _)| i)
-                .unwrap()
-        } else {
-            rng.random_range(0..ACTION_SPACE)
-        };
-        actions[choice] += 1;
-        let reward: i16 = choice as i16;
-        loss_derivative[choice] = agent_prediction[choice] - (reward as f32);
-        agent.backprop(&state, &mut loss_derivative);
-        if steps % BATCH_SIZE == 0 {
-            agent.apply_gradients(LEARNING_RATE, BATCH_SIZE);
+struct ReplayBuffer {
+    experience_replay: Vec<Experience>,
+    rng: rand::rngs::StdRng,
+    sample_distr: rand_distr::Normal<f32>,
+}
+
+impl ReplayBuffer {
+    pub fn new() -> Self {
+        Self {
+            experience_replay: vec![],
+            rng: rand::rngs::StdRng::seed_from_u64(train::SEED),
+            sample_distr: rand_distr::Normal::new(0., 0.).unwrap(),
         }
-        display_progress(iter);
+    }
+
+    pub fn push_experience(&mut self, experience: Experience) {
+        self.experience_replay.push(experience);
+    }
+
+    pub fn sample(&mut self) -> [&Experience; BATCH_SIZE] {
+        self.sample_distr =
+            rand_distr::Normal::new(0., self.experience_replay.len() as f32 / 3.).unwrap();
+        let experiences: [&Experience; BATCH_SIZE] = (0..BATCH_SIZE)
+            .map(|_| {
+                &self.experience_replay[self.sample_distr.sample(&mut self.rng).abs() as usize]
+            })
+            .collect::<Vec<&Experience>>()
+            .try_into()
+            .unwrap_or_else(|_| panic!("Failed to collect experiences into an array"));
+        return experiences;
     }
 }
 
 pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model) {
+    let mut replay_buffer: ReplayBuffer = ReplayBuffer::new();
     let mut rng: rand::rngs::StdRng = rand::rngs::StdRng::seed_from_u64(SEED);
     let mut acted_upon_state: Array1<f32>;
     let mut target: crate::model::Model = agent.clone();
-    let mut state: Array1<f32> = Array1::zeros(OBSERVATION_SPACE);
-    let mut loss_derivative;
-    let mut epsilon: f32 = 0.0;
-    let mut residual = 0;
-    let mut errors: [(usize, f32); 15] = [(0, 0.); 15];
-    let mut target_preds: [(usize, f32); 15] = [(0, -5.); 15];
-    let mut preds: [(usize, f32); 15] = [(0, 0.); 15];
+    let mut state: Array1<f32> = Array1::zeros(game.observation_space);
+    let mut epsilon: f32 = 1.0;
+    let mut sample_progress: usize = 0;
+    let mut loss_derivative: Array1<f32>;
     for iter in 0..SESSIONS {
         epsilon *= EPSILON_DECAY;
-        let mut rewards_per_action: [f32; ACTION_SPACE] = [0.; ACTION_SPACE];
-        let mut actions: [u16; ACTION_SPACE] = [0; ACTION_SPACE];
-        let mut intentional_actions: [u16; ACTION_SPACE] = [0; ACTION_SPACE];
         let mut score: f32 = 0.;
         loop {
-            loss_derivative = Array1::zeros(ACTION_SPACE);
+            loss_derivative = Array1::zeros(game.action_space);
             game.state().to_vec(&mut state);
             acted_upon_state = state.clone();
-            let agent_prediction = agent.forward(&state).clone();
-            dbg!(&agent_prediction);
+            let agent_prediction = agent.forward(&state);
             let choice: usize = if rng.random::<f32>() > epsilon {
-                let temp_choice = agent_prediction
+                agent_prediction
                     .indexed_iter()
                     .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
                     .map(|(i, _)| i)
-                    .unwrap();
-                intentional_actions[temp_choice] += 1;
-                temp_choice
+                    .unwrap()
             } else {
-                rng.random_range(0..ACTION_SPACE)
+                rng.random_range(0..game.action_space)
             };
             let (reward, finished) = game.step(choice, false);
-            rewards_per_action[choice] += reward;
-            preds[game.steps as usize - 1] = (choice, agent_prediction[choice]);
             game.state().to_vec(&mut state);
-            if finished {
-                loss_derivative[choice] = agent_prediction[choice] - reward as f32;
-            } else {
-                let target_prediction = target.forward(&state);
-                let next_state_choice: usize = target_prediction
-                    .indexed_iter()
-                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-                    .map(|(i, _)| i)
-                    .unwrap();
-                let next_state_value_estimate: f32 = target_prediction[next_state_choice];
-                if game.steps % 10 == 0 {
-                    println!(
-                        "Next value estimate: {:?}\tReward: {:?}\nQ-prediction:{:?}",
-                        next_state_value_estimate, reward, agent_prediction
-                    );
+            replay_buffer.push_experience(Experience {
+                state: acted_upon_state,
+                action: choice,
+                reward: reward,
+                next_state: state.clone(),
+            });
+            sample_progress += 1;
+            if sample_progress % SAMPLING_FREQUENCY == 0 {
+                for experience in replay_buffer.sample() {
+                    let agent_reward_prediction: f32 =
+                        agent.forward(&experience.state)[experience.action];
+                    let next_state_reward_prediction = target
+                        .forward(&experience.next_state)
+                        .iter()
+                        .max_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap();
+                    loss_derivative[experience.action] = agent_reward_prediction
+                        - GAMMA * (experience.reward + next_state_reward_prediction);
+                    agent.backprop(&experience.state, &loss_derivative);
                 }
-                loss_derivative[choice] =
-                    agent_prediction[choice] - (reward as f32 + GAMMA * next_state_value_estimate);
-                target_preds[game.steps as usize - 1] =
-                    (next_state_choice, next_state_value_estimate);
-                dbg!(next_state_value_estimate);
-            }
-            actions[choice] += 1;
-            errors[game.steps as usize - 1] = (choice, loss_derivative[choice]);
-            // println!(
-            //     "Score: {}\tIntentional Action Count: {:?}\tFull Actions: {:?}\tRewards: {:?}\tOutput: {:?}",
-            //     score, intentional_actions, actions, rewards_per_action, agent_prediction
-            // );
-            agent.backprop(&acted_upon_state, &mut loss_derivative);
-            if (game.steps + residual) % BATCH_SIZE == 0 {
-                residual = 0;
-                println!("**************************************************");
-                agent.apply_gradients(LEARNING_RATE, BATCH_SIZE);
+                agent.apply_gradients(LEARNING_RATE);
+                if sample_progress % (SAMPLING_FREQUENCY * TARGET_UPDATE_FREQUENCY) == 0 {
+                    target = agent.clone();
+                }
             }
             score += reward;
             if finished {
-                residual += game.steps % BATCH_SIZE;
-                for i in 0..OBSERVATION_SPACE {
-                    rewards_per_action[i] = if intentional_actions[i] == 0 {
-                        0.
-                    } else {
-                        rewards_per_action[i] / intentional_actions[i] as f32
-                    };
-                }
-                println!(
-                    "Score: {}\tIntentional Action Count: {:?}\tFull Actions: {:?}\tRewards: {:?}\tOutput: {:?}",
-                    score, intentional_actions, actions, rewards_per_action, agent_prediction
-                );
-                if iter % 2 == 0 {
-                    target = agent.clone();
-                }
                 game.reset();
+                println!("Scored: {}", score);
                 break;
             }
         }
+        display_progress(iter);
     }
     game::run_game(
         || {

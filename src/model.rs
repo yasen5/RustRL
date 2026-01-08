@@ -136,9 +136,9 @@ impl Model {
         self.layers[0].compute_gradient(state, loss_derivative);
     }
 
-    pub fn apply_gradients(&mut self, learning_rate: f32, batch_size: u16) {
+    pub fn apply_gradients(&mut self, learning_rate: f32) {
         for layer in &mut self.layers {
-            layer.apply_gradient(learning_rate / batch_size as f32);
+            layer.apply_gradient(learning_rate);
         }
     }
 }
