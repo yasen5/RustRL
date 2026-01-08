@@ -59,7 +59,7 @@ pub fn test_backprop() {
                     "\n====================================================================================================\n"
                 );
             }
-            agent.apply_gradients(LEARNING_RATE, 1);
+            agent.apply_gradients(LEARNING_RATE);
             counter += 1;
         }
         if iter >= ITERS - 10 {

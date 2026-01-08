@@ -152,7 +152,7 @@ impl Rocket {
     pub fn to_vec(&self, output: &mut Array1<f32>) {
         output[0] = self.pos.x.value / ENV_BOX_WIDTH.value;
         // output[1] = self.pos.y.value / ENV_BOX_HEIGHT.value;
-        output[1] = self.vx.value / GRAVITY.value; // REMEMBER TO CHANGE THIS BACK TO 2
+        output[1] = self.vx.value / GRAVITY.value; // TODO REMEMBER TO CHANGE THIS BACK TO 2
         // output[3] = self.vy.value / GRAVITY.value;
         // output[4] = self.angular_velocity.value;
         // output[5] = self.tilt.cos().value;
@@ -281,8 +281,8 @@ impl Game {
     pub fn new() -> Self {
         Self {
             state: Rocket::new(),
-            action_space: 6,
-            observation_space: 5,
+            action_space: 2,
+            observation_space: 2,
             steps: 0,
         }
     }
@@ -294,24 +294,12 @@ impl Game {
 // 3: no engines firing
 impl Game {
     #[allow(non_snake_case)]
-    pub fn step(&mut self, choice: usize, verbose: bool) -> (f32, bool) {
+    pub fn step(&mut self, choice: usize) -> (f32, bool) {
         self.steps += 1;
         let mut reward: f32 = 0.;
         match choice {
             0 => Ok(self.state.fire_engine(Engine::RIGHT)),
             1 => Ok(self.state.fire_engine(Engine::LEFT)),
-            2 => Ok(self.state.fire_engine(Engine::DOWN)),
-            3 => Ok(()), // saving fuel,
-            // 4 => {
-            //     self.state.fire_engine(Engine::RIGHT);
-            //     self.state.fire_engine(Engine::DOWN);
-            //     Ok(())
-            // }
-            // 5 => {
-            //     self.state.fire_engine(Engine::LEFT);
-            //     self.state.fire_engine(Engine::DOWN);
-            //     Ok(())
-            // }
             _ => Err(()),
         }
         .unwrap();
@@ -347,7 +335,7 @@ impl Game {
     }
 }
 
-pub async fn run_game(mut choose: impl FnMut() -> usize, verbose: bool) {
+pub async fn run_game(mut choose: impl FnMut() -> usize) {
     let mut new_game = Game::new();
     let mut score: f32 = 0.;
     new_game.draw();
@@ -355,13 +343,12 @@ pub async fn run_game(mut choose: impl FnMut() -> usize, verbose: bool) {
     loop {
         let choice: usize = choose();
         println!("Chose: {}", choice);
-        // let choice = if new_game.steps <= 13 { 0 } else { 1 };
 
         new_game.draw();
         thread::sleep(Duration::from_millis(DT.get::<millisecond>() as u64));
         next_frame().await;
 
-        let (reward, finished) = new_game.step(choice, verbose);
+        let (reward, finished) = new_game.step(choice);
         score += reward;
 
         println!("Reward: {}", reward);

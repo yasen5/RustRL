@@ -1,26 +1,20 @@
-use lunar_lander_rl::{game, model, test, train};
-use macroquad::{
-    input::{KeyCode, is_key_down},
-    window::Conf,
-};
-use rand::Rng;
+use lunar_lander_rl::{game, model, train};
+use macroquad::window::Conf;
 
 const HUMAN_PLAYER: bool = false;
 
-fn main() {
-    let mut new_game: game::Game = game::Game::new();
+#[macroquad::main(window_conf)]
+async fn main() {
+    let mut game: game::Game = game::Game::new();
     if HUMAN_PLAYER {
-        // game::run_game(choose, false).await;
+        game::run_game(choose).await;
     } else {
-        // let mut agent: model::Model = model::Model::new();
-        // agent.add_layer(4, 512, true);
-        // agent.add_layer(512, 256, true);
-        // agent.add_layer(256, 64, true);
-        // agent.add_layer(64, 4, false);
-        // agent.add_layer(2, 2, false);
-        // train::train(&mut new_game, &mut agent).await;
-        // train::fake_train(&mut agent);
-        test::test_backprop();
+        let mut agent: model::Model = model::Model::new();
+        agent.add_layer(game.observation_space, 512, true);
+        agent.add_layer(512, 256, true);
+        agent.add_layer(256, 64, true);
+        agent.add_layer(64, game.action_space, false);
+        train::train(&mut game, &mut agent).await;
     }
 }
 

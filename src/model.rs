@@ -1,6 +1,6 @@
 use ndarray::{Array1, Array2};
 use ndarray_rand::RandomExt;
-use rand::{Rng, SeedableRng, distr::Uniform};
+use rand::{SeedableRng, distr::Uniform};
 
 use crate::train;
 
