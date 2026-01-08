@@ -84,7 +84,7 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
             } else {
                 rng.random_range(0..game.action_space)
             };
-            let (reward, finished) = game.step(choice, false);
+            let (reward, finished) = game.step(choice);
             game.state().to_vec(&mut state);
             replay_buffer.push_experience(Experience {
                 state: acted_upon_state,
@@ -130,7 +130,6 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
                 .map(|(i, _)| i)
                 .unwrap()
         },
-        true,
     )
     .await;
 }
