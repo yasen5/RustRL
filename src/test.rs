@@ -10,6 +10,7 @@ const TARGET_UPDATE_FREQ: usize = 100;
 const PRINT_FREQ: u16 = ITERS as u16 / 10;
 
 pub fn test_backprop() {
+    #[allow(non_snake_case)]
     let BATCH_SIZE: u16 = *game::MAX_STEPS * 16;
     let mut game: game::Game = game::Game::new();
     let mut state: Array1<f32> = Array1::zeros(2);
@@ -29,7 +30,7 @@ pub fn test_backprop() {
             .map(|(i, _)| i)
             .unwrap();
         state_clone = state.clone();
-        let (reward, finished) = game.step(agent_choice, false);
+        let (reward, finished) = game.step(agent_choice);
         game.state.to_vec(&mut state);
         let target_prediction: &Array1<f32> = target.forward(&state);
         let target_choice: usize = target_prediction
