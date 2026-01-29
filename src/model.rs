@@ -1,6 +1,7 @@
 use ndarray::{Array1, Array2};
 use ndarray_rand::RandomExt;
-use rand::{SeedableRng, distr::Uniform};
+use rand::{SeedableRng};
+use rand_distr::Normal;
 
 use crate::train;
 
@@ -17,13 +18,13 @@ pub struct LinearLayer {
 
 impl LinearLayer {
     pub fn new(inputs: usize, outputs: usize, relu: bool) -> Self {
-        let avg_io_size: f32 = (inputs + outputs) as f32 / 2.0;
+        let he_std: f32 = (2 as f32 / inputs as f32).sqrt();
         let mut rng: rand::rngs::StdRng = rand::rngs::StdRng::seed_from_u64(train::SEED);
         Self {
             weights: Array2::random_using(
                 (outputs, inputs),
-                Uniform::new(-avg_io_size, avg_io_size).unwrap(),
-                &mut rng
+                Normal::new(0., he_std).unwrap(),
+                &mut rng,
             ),
             weight_gradient: Array2::zeros((outputs, inputs)),
             biases: Array1::zeros(outputs),
@@ -118,22 +119,22 @@ impl Model {
     }
 
     pub fn backprop(&mut self, state: &Array1<f32>, loss_derivative: &Array1<f32>) {
-        // let (before_layers, last_layer) = self.layers.split_at_mut(self.num_layers - 1);
-        // last_layer[0].compute_gradient(
-        //     before_layers[before_layers.len() - 1].activation(),
-        //     loss_derivative,
-        // );
-        // for i in (1..self.layers.len() - 1).rev() {
-        //     let (before_layers, after_layers) = self.layers.split_at_mut(i);
-        //     let (curr_layer, after_layers) = after_layers.split_at_mut(1);
-        //     curr_layer[0].compute_gradient(
-        //         before_layers[before_layers.len() - 1].activation(),
-        //         after_layers[0].prev_derivative(),
-        //     );
-        // }
-        // let (first_layer, other_layers) = self.layers.split_at_mut(1);
-        // first_layer[0].compute_gradient(&state, other_layers[0].prev_derivative());
-        self.layers[0].compute_gradient(state, loss_derivative);
+        let (before_layers, last_layer) = self.layers.split_at_mut(self.num_layers - 1);
+        last_layer[0].compute_gradient(
+            before_layers[before_layers.len() - 1].activation(),
+            loss_derivative,
+        );
+        for i in (1..self.layers.len() - 1).rev() {
+            let (before_layers, after_layers) = self.layers.split_at_mut(i);
+            let (curr_layer, after_layers) = after_layers.split_at_mut(1);
+            curr_layer[0].compute_gradient(
+                before_layers[before_layers.len() - 1].activation(),
+                after_layers[0].prev_derivative(),
+            );
+        }
+        let (first_layer, other_layers) = self.layers.split_at_mut(1);
+        first_layer[0].compute_gradient(&state, other_layers[0].prev_derivative());
+        // self.layers[0].compute_gradient(state, loss_derivative);
     }
 
     pub fn apply_gradients(&mut self, learning_rate: f32) {

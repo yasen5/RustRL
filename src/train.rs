@@ -46,10 +46,10 @@ impl ReplayBuffer {
 
     pub fn sample(&mut self) -> [&Experience; BATCH_SIZE] {
         self.sample_distr =
-            rand_distr::Normal::new(0., self.experience_replay.len() as f32 / 3.).unwrap();
+            rand_distr::Normal::new(0., self.experience_replay.len() as f32 / 4.).unwrap();
         let experiences: [&Experience; BATCH_SIZE] = (0..BATCH_SIZE)
             .map(|_| {
-                &self.experience_replay[self.sample_distr.sample(&mut self.rng).abs() as usize]
+                &self.experience_replay[self.sample_distr.sample(&mut self.rng).abs().clamp(0., self.experience_replay.len() as f32) as usize]
             })
             .collect::<Vec<&Experience>>()
             .try_into()
@@ -76,6 +76,8 @@ pub async fn train(game: &mut crate::game::Game, agent: &mut crate::model::Model
             acted_upon_state = state.clone();
             let agent_prediction = agent.forward(&state);
             let choice: usize = if rng.random::<f32>() > epsilon {
+                println!("Debug time");
+                dbg!(agent_prediction);
                 agent_prediction
                     .indexed_iter()
                     .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())

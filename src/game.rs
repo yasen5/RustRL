@@ -32,7 +32,7 @@ lazy_static! {
         Velocity::new::<meter_per_second>(ENV_BOX_HEIGHT.value / 5.);
     static ref PARTICLE_RADIUS: Length = *ENV_BOX_HEIGHT / 100.;
     static ref PARTICLE_LIFTIME: Time = Time::new::<second>(1.);
-    pub static ref MAX_STEPS: u16 = 2;
+    pub static ref MAX_STEPS: u16 = 3;
     static ref MIN_HEIGHT: Length = *ENV_BOX_HEIGHT / 5.;
     static ref MAX_ANGULAR_VEL: AngularVelocity =
         AngularVelocity::new::<radian_per_second>(PI / 4.);
